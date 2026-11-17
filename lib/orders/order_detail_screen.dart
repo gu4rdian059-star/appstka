@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'refund_screen.dart';
+import '../services/user_db_service.dart';
 
 class OrderDetailScreen extends StatelessWidget {
   final String orderId;
@@ -43,6 +44,33 @@ class OrderDetailScreen extends StatelessWidget {
     this.onViewTicket,
     this.onPayNow,
   });
+
+  factory OrderDetailScreen.fromBooking(
+    BookingModel b, {
+    VoidCallback? onViewTicket,
+    VoidCallback? onPayNow,
+  }) {
+    return OrderDetailScreen(
+      bookingCode: b.bookingId,
+      orderId: 'ORD-${b.bookingId.replaceAll('TKA-', '')}',
+      status: b.status,
+      trainName: b.trainName,
+      trainClass: b.trainClass,
+      origin: '${b.originName} (${b.originCode})',
+      dest: '${b.destName} (${b.destCode})',
+      departureTime: b.departureTime,
+      arrivalTime: b.arrivalTime,
+      passengerName: b.passengerName,
+      passengerNik: b.passengerNik,
+      seat: b.seatNumber,
+      totalAmount: b.totalAmount,
+      paymentMethod: b.paymentMethod,
+      vaNumber: b.vaNumber,
+      travelDate: b.travelDate,
+      onViewTicket: onViewTicket,
+      onPayNow: onPayNow,
+    );
+  }
 
   String _formatCurrency(int amount) {
     return 'Rp${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';

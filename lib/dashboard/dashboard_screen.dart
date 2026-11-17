@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../services/session_service.dart';
+import '../services/user_db_service.dart';
 import '../intercity/antar_kota_screen.dart';
 import '../orders/orders_screen.dart';
+import '../orders/order_detail_screen.dart';
 import '../tickets/my_tickets_screen.dart';
 import '../profile/profile_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -29,6 +31,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _userBalance = 0;
   int _userPoints = 0;
   String _userTier = 'Member Baru';
+  List<BookingModel> _activeBookings = [];
+  bool _isLoadingBookings = true;
 
   int _activeNavIndex = 0; // 0: Beranda, 1: Pesanan, 2: Tiket Saya, 3: Akun
   int _selectedTripType = 0; // 0: Sekali Jalan, 1: Pulang Pergi
@@ -126,6 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final balance = await SessionService.getUserBalance();
     final points = await SessionService.getUserPoints();
     final tier = await SessionService.getUserTier();
+    final bookings = await UserDatabaseService.getBookings(statusFilter: 'Sudah Dibayar');
 
     if (mounted) {
       setState(() {
@@ -133,6 +138,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         _userBalance = balance;
         _userPoints = points;
         _userTier = tier;
+        _activeBookings = bookings;
+        _isLoadingBookings = false;
       });
     }
   }
@@ -362,9 +369,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     required Animation<double> ticketAnim,
     required Animation<double> promoAnim,
   }) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: _loadUserData,
+      color: const Color(0xFFF26716),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        child: Column(
         children: [
           // ==================== 1. HEADER BIRU NAVY ====================
           SlideTransition(
@@ -472,8 +482,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ==========================================================================
   // 1. HEADER BIRU NAVY (LOGO, GREETING, NOTIFIKASI, BENDERA ID)
@@ -1681,9 +1692,97 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   // ==========================================================================
-  // 5. PERJALANAN MENDATANG (1 TIKET AKTIF KA ARGO BROMO ANGGREK)
+  // 5. PERJALANAN MENDATANG (DINAMIS BERDASARKAN TIKET AKTIF USER)
   // ==========================================================================
   Widget _buildUpcomingJourneySection() {
+    if (_isLoadingBookings) {
+      return const SizedBox.shrink();
+    }
+
+    if (_activeBookings.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF062056).withValues(alpha: 0.05),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF062056).withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.confirmation_number_outlined,
+                color: Color(0xFF062056),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Belum Ada Perjalanan Aktif',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF062056),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Pesan tiket kereta sekarang untuk mulai perjalanan Anda.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AntarKotaScreen()),
+                ).then((_) => _loadUserData());
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF26716),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'Cari Tiket',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final ticket = _activeBookings.first;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1699,9 +1798,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 letterSpacing: 0.3,
               ),
             ),
-            const Text(
-              '1 Tiket Aktif',
-              style: TextStyle(
+            Text(
+              '${_activeBookings.length} Tiket Aktif',
+              style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFFF26716),
@@ -1712,7 +1811,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         const SizedBox(height: 10),
 
-        // Kartu Tiket Aktif
+        // Kartu Tiket Aktif Pengguna
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -1729,24 +1828,30 @@ class _DashboardScreenState extends State<DashboardScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Kartu: Nama KA & Badge "Hari Ini"
+              // Header Kartu: Nama KA & Badge Tanggal
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.circle, size: 8, color: Color(0xFF2E7D32)),
-                      SizedBox(width: 6),
-                      Text(
-                        'KA Argo Bromo Anggrek',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF062056),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.circle, size: 8, color: Color(0xFF2E7D32)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            ticket.trainName,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF062056),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -1756,9 +1861,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       color: const Color(0xFFE3F2FD),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Text(
-                      'Hari Ini',
-                      style: TextStyle(
+                    child: Text(
+                      ticket.travelDate,
+                      style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF1976D2),
@@ -1769,7 +1874,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
               const SizedBox(height: 2),
               Text(
-                'Eksekutif (EKS-1 / 12A)',
+                '${ticket.trainClass} • Kursi ${ticket.seatNumber}',
                 style: TextStyle(
                   fontSize: 11,
                   color: Colors.grey.shade600,
@@ -1787,25 +1892,25 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '08:20',
-                        style: TextStyle(
+                      Text(
+                        ticket.departureTime.replaceAll(' WIB', ''),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF062056),
                         ),
                       ),
                       const SizedBox(height: 1),
-                      const Text(
-                        'GMR',
-                        style: TextStyle(
+                      Text(
+                        ticket.originCode,
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF062056),
                         ),
                       ),
                       Text(
-                        'Gambir',
+                        ticket.originCity,
                         style: TextStyle(
                           fontSize: 10.5,
                           color: Colors.grey.shade600,
@@ -1821,7 +1926,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       child: Column(
                         children: [
                           Text(
-                            '8j 10m (Langsung)',
+                            'Langsung',
                             style: TextStyle(
                               fontSize: 10,
                               color: Colors.grey.shade600,
@@ -1860,25 +1965,25 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text(
-                        '16:30',
-                        style: TextStyle(
+                      Text(
+                        ticket.arrivalTime.replaceAll(' WIB', ''),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF062056),
                         ),
                       ),
                       const SizedBox(height: 1),
-                      const Text(
-                        'SBI',
-                        style: TextStyle(
+                      Text(
+                        ticket.destCode,
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF062056),
                         ),
                       ),
                       Text(
-                        'Pasar Turi',
+                        ticket.destCity,
                         style: TextStyle(
                           fontSize: 10.5,
                           color: Colors.grey.shade600,
@@ -1906,9 +2011,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                           color: Colors.grey.shade600,
                         ),
                       ),
-                      const Text(
-                        'TKA-B947XQ',
-                        style: TextStyle(
+                      Text(
+                        ticket.bookingId,
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                           fontFamily: 'monospace',
@@ -1917,21 +2022,31 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                     ],
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF26716),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Text(
-                      'Lihat E-Tiket',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                  InkWell(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => OrderDetailScreen.fromBooking(ticket),
+                        ),
+                      ).then((_) => _loadUserData());
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF26716),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'Lihat E-Tiket',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),

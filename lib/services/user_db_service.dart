@@ -358,6 +358,14 @@ class UserDatabaseService {
     return uuidRegex.hasMatch(val);
   }
 
+  /// Membuat string UUID v4 deterministik dari kode booking (misal TKA-661350)
+  /// agar kompatibel jika kolom booking_id di Supabase masih bertipe UUID.
+  static String _codeToUuid(String code) {
+    final clean = code.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+    final hex = clean.codeUnits.map((c) => c.toRadixString(16)).join().padRight(32, '0').substring(0, 32);
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-4${hex.substring(13, 16)}-a${hex.substring(17, 20)}-${hex.substring(20, 32)}';
+  }
+
   /// Inisialisasi Master Data Stasiun, Jadwal Kereta & Sinkronisasi DB per User
   static Future<void> initialize({bool forceReload = false}) async {
     final currentEmail = (await SessionService.getUserEmail())?.toLowerCase().trim() ?? '';
@@ -1238,37 +1246,12 @@ class UserDatabaseService {
           debugPrint('✅ [Supabase Upsert Success] Tiket $bookingCode berhasil disimpan ke Supabase dengan status Dibatalkan: $upsertRes');
         }
 
-        // Masukkan juga riwayat pembatalan ke tabel cancellations Supabase
-        try {
-          final cancelMap = <String, dynamic>{
-            'reason': reason,
-            'refund_amount': refundAmount,
-            'status': 'Dibatalkan',
-            'created_at': DateTime.now().toIso8601String(),
-          };
-          if (_isValidUuid(savedUserId)) {
-            cancelMap['user_id'] = savedUserId!;
-          }
-          cancelMap['booking_id'] = bookingCode;
-
-          await client.from('cancellations').insert(cancelMap);
-          debugPrint('✅ [Supabase Cancellations Success] Data pembatalan tiket $bookingCode berhasil masuk ke tabel cancellations Supabase');
-        } catch (cErr) {
-          debugPrint('⚠️ [Supabase Cancellations Retry] Gagal insert dengan schema lengkap, coba schema minimal: $cErr');
-          try {
-            final minimalMap = <String, dynamic>{
-              'reason': reason,
-              'booking_id': bookingCode,
-            };
-            if (_isValidUuid(savedUserId)) {
-              minimalMap['user_id'] = savedUserId!;
-            }
-            await client.from('cancellations').insert(minimalMap);
-            debugPrint('✅ [Supabase Cancellations Success] Data pembatalan minimal berhasil masuk ke tabel cancellations');
-          } catch (cErr2) {
-            debugPrint('❌ [Supabase Cancellations Error] Gagal insert ke tabel cancellations: $cErr2');
-          }
-        }
+        // 2. Masukkan riwayat pembatalan ke tabel cancellations Supabase dengan fallback multi-tier
+        await _recordCancellationInSupabase(
+          bookingCode: bookingCode,
+          reason: reason,
+          refundAmount: refundAmount,
+        );
       } catch (e, stack) {
         debugPrint('❌ [Supabase Update Error] Gagal membatalkan tiket $bookingCode di Supabase: $e');
         debugPrint('Detail error: $stack');
@@ -1278,6 +1261,116 @@ class UserDatabaseService {
     }
 
     return false;
+  }
+
+  /// Mencatat riwayat pembatalan ke tabel cancellations Supabase dengan fallback berlapis:
+  /// 1. Schema lengkap standar (booking_id VARCHAR)
+  /// 2. Schema minimal 4-kolom (id, booking_id, user_id, reason)
+  /// 3. Schema UUID deterministik (jika booking_id di Supabase masih bertipe UUID)
+  /// 4. Fallback tanpa user_id jika ada RLS / foreign key error
+  /// 5. Fallback minimal reason
+  static Future<void> _recordCancellationInSupabase({
+    required String bookingCode,
+    required String reason,
+    required int refundAmount,
+  }) async {
+    try {
+      final client = SupabaseService.client;
+      var currentUser = client.auth.currentUser;
+      if (currentUser == null) {
+        currentUser = await AuthService.ensureSupabaseAuthSession();
+      }
+      final savedUserId = currentUser?.id ?? await SessionService.getUserId();
+      final hasValidUser = _isValidUuid(savedUserId);
+      final uuidCode = _codeToUuid(bookingCode);
+
+      // Plan 1: Schema Lengkap (booking_id VARCHAR)
+      try {
+        final payload = <String, dynamic>{
+          'booking_id': bookingCode,
+          'reason': reason,
+          'refund_amount': refundAmount,
+          'status': 'Dibatalkan',
+          'created_at': DateTime.now().toIso8601String(),
+        };
+        if (hasValidUser) payload['user_id'] = savedUserId!;
+        await client.from('cancellations').insert(payload);
+        debugPrint('✅ [Supabase Cancellations Success] Tercatat dengan booking_id $bookingCode');
+        return;
+      } catch (err1) {
+        debugPrint('⚠️ [Supabase Cancellations Plan 1 Info]: $err1');
+      }
+
+      // Plan 2: Schema Minimal 4 Kolom (booking_id VARCHAR)
+      try {
+        final payload = <String, dynamic>{
+          'booking_id': bookingCode,
+          'reason': reason,
+        };
+        if (hasValidUser) payload['user_id'] = savedUserId!;
+        await client.from('cancellations').insert(payload);
+        debugPrint('✅ [Supabase Cancellations Success] Tercatat dengan schema 4 kolom VARCHAR');
+        return;
+      } catch (err2) {
+        debugPrint('⚠️ [Supabase Cancellations Plan 2 Info]: $err2');
+      }
+
+      // Plan 3: Schema UUID (Jika di Supabase kolom booking_id masih bertipe UUID)
+      try {
+        final payload = <String, dynamic>{
+          'booking_id': uuidCode,
+          'reason': '$reason (Kode: $bookingCode)',
+          'refund_amount': refundAmount,
+          'status': 'Dibatalkan',
+          'created_at': DateTime.now().toIso8601String(),
+        };
+        if (hasValidUser) payload['user_id'] = savedUserId!;
+        await client.from('cancellations').insert(payload);
+        debugPrint('✅ [Supabase Cancellations Success] Tercatat dengan UUID deterministik: $uuidCode');
+        return;
+      } catch (err3) {
+        debugPrint('⚠️ [Supabase Cancellations Plan 3 Info]: $err3');
+      }
+
+      // Plan 4: Schema UUID Minimal 4 Kolom (booking_id UUID)
+      try {
+        final payload = <String, dynamic>{
+          'booking_id': uuidCode,
+          'reason': '$reason (Kode: $bookingCode)',
+        };
+        if (hasValidUser) payload['user_id'] = savedUserId!;
+        await client.from('cancellations').insert(payload);
+        debugPrint('✅ [Supabase Cancellations Success] Tercatat dengan UUID 4 kolom');
+        return;
+      } catch (err4) {
+        debugPrint('⚠️ [Supabase Cancellations Plan 4 Info]: $err4');
+      }
+
+      // Plan 5: Omit user_id jika ada RLS atau Foreign Key error pada user_id
+      try {
+        final payload = <String, dynamic>{
+          'booking_id': uuidCode,
+          'reason': '$reason (Kode: $bookingCode, User: ${savedUserId ?? "Anonim"})',
+        };
+        await client.from('cancellations').insert(payload);
+        debugPrint('✅ [Supabase Cancellations Success] Tercatat tanpa user_id FK');
+        return;
+      } catch (err5) {
+        debugPrint('⚠️ [Supabase Cancellations Plan 5 Info]: $err5');
+      }
+
+      // Plan 6: Fallback Darurat Hanya Reason
+      try {
+        await client.from('cancellations').insert({
+          'reason': 'Pembatalan $bookingCode: $reason',
+        });
+        debugPrint('✅ [Supabase Cancellations Success] Tercatat pada fallback reason');
+      } catch (err6) {
+        debugPrint('❌ [Supabase Cancellations Final Error] Seluruh metode insert gagal: $err6');
+      }
+    } catch (outerErr) {
+      debugPrint('❌ [Supabase Cancellations Error]: $outerErr');
+    }
   }
 
   // ===========================================================================
@@ -1335,6 +1428,15 @@ class UserDatabaseService {
               debugPrint('Catatan seeding booking ${b.bookingId}: $itemErr');
             }
           }
+        }
+
+        // Sinkronkan tiket yang berstatus Dibatalkan ke tabel cancellations Supabase
+        for (final b in _bookings.where((x) => x.status == 'Dibatalkan')) {
+          _recordCancellationInSupabase(
+            bookingCode: b.bookingId,
+            reason: b.cancelReason ?? 'Pembatalan oleh pengguna',
+            refundAmount: b.refundAmount ?? (b.totalAmount * 0.75).round(),
+          );
         }
       }
     } catch (e) {
