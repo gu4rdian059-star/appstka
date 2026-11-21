@@ -18,7 +18,8 @@ class _RegisterScreenState extends State<RegisterScreen>
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -63,7 +64,9 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
 
-    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
     if (!emailRegex.hasMatch(email)) {
       _showWarning('Format email tidak valid (contoh: nama@email.com).');
       return;
@@ -104,19 +107,9 @@ class _RegisterScreenState extends State<RegisterScreen>
       setState(() => _isLoading = false);
 
       if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Expanded(child: Text(result.message)),
-              ],
-            ),
-            backgroundColor: const Color(0xFF10B981),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        // Tampilkan dialog animasi berhasil registrasi
+        await _showRegisterSuccessDialog(name);
+        if (!mounted) return;
 
         Navigator.of(context).pushAndRemoveUntil(
           PageRouteBuilder(
@@ -133,7 +126,11 @@ class _RegisterScreenState extends State<RegisterScreen>
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(child: Text(result.message)),
               ],
@@ -148,6 +145,117 @@ class _RegisterScreenState extends State<RegisterScreen>
       setState(() => _isLoading = false);
       _showWarning('Terjadi kendala saat registrasi: $e');
     }
+  }
+
+  Future<void> _showRegisterSuccessDialog(String name) async {
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'Register Success',
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      transitionDuration: const Duration(milliseconds: 350),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutBack),
+          child: FadeTransition(opacity: anim1, child: child),
+        );
+      },
+      pageBuilder: (ctx, anim1, anim2) {
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (ctx.mounted) {
+            Navigator.of(ctx).pop();
+          }
+        });
+
+        return Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 36),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 42,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Registrasi Berhasil!',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF062056),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Akun atas nama $name telah berhasil dibuat. Silakan login untuk melanjutkan.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF64748B),
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0256B8)),
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'Mengalihkan ke halaman login...',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showWarning(String message) {
@@ -285,7 +393,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                         color: const Color(0xFF9EA3AE),
                         size: 20,
                       ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
                 ),
@@ -311,7 +420,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                         size: 20,
                       ),
                       onPressed: () => setState(
-                          () => _obscureConfirmPassword = !_obscureConfirmPassword),
+                        () =>
+                            _obscureConfirmPassword = !_obscureConfirmPassword,
+                      ),
                     ),
                   ),
                 ),
@@ -334,13 +445,15 @@ class _RegisterScreenState extends State<RegisterScreen>
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          onChanged: (v) => setState(() => _agreeTerms = v ?? false),
+                          onChanged: (v) =>
+                              setState(() => _agreeTerms = v ?? false),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => setState(() => _agreeTerms = !_agreeTerms),
+                          onTap: () =>
+                              setState(() => _agreeTerms = !_agreeTerms),
                           child: const Text.rich(
                             TextSpan(
                               text: 'Saya menyetujui ',
@@ -425,7 +538,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                       children: [
                         const Text(
                           'Sudah punya akun? ',
-                          style: TextStyle(fontSize: 13, color: Color(0xFF6E7582)),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6E7582),
+                          ),
                         ),
                         GestureDetector(
                           onTap: () => Navigator.of(context).maybePop(),
@@ -485,7 +601,10 @@ class _RegisterScreenState extends State<RegisterScreen>
             decoration: InputDecoration(
               border: InputBorder.none,
               hintText: hint,
-              hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFA6ABB8)),
+              hintStyle: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFFA6ABB8),
+              ),
               prefixIcon: Icon(icon, color: const Color(0xFF9EA3AE), size: 20),
               suffixIcon: suffix,
               contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -521,4 +640,3 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 }
-

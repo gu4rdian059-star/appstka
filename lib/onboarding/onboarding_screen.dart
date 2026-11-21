@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../login/login_screen.dart';
@@ -72,8 +73,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   double _pageOffsetFor(int index) {
     double page = _currentPage.toDouble();
-    if (_pageController.hasClients &&
-        _pageController.position.haveDimensions) {
+    if (_pageController.hasClients && _pageController.position.haveDimensions) {
       page = _pageController.page ?? page;
     }
     return page - index;
@@ -219,17 +219,58 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     final t = _transitionController.value;
 
                     // 1. Animasi Keluar Onboarding (Zoom maju halus & dissolve fade-out)
-                    final exitOpacity = (1.0 - const Interval(0.0, 0.55, curve: Curves.easeInOutCubic).transform(t)).clamp(0.0, 1.0);
-                    final exitScale = 1.0 + 0.08 * const Interval(0.0, 0.65, curve: Curves.easeOutQuad).transform(t);
-                    final exitTranslateY = -24.0 * const Interval(0.0, 0.65, curve: Curves.easeOutQuad).transform(t);
+                    final exitOpacity =
+                        (1.0 -
+                                const Interval(
+                                  0.0,
+                                  0.55,
+                                  curve: Curves.easeInOutCubic,
+                                ).transform(t))
+                            .clamp(0.0, 1.0);
+                    final exitScale =
+                        1.0 +
+                        0.08 *
+                            const Interval(
+                              0.0,
+                              0.65,
+                              curve: Curves.easeOutQuad,
+                            ).transform(t);
+                    final exitTranslateY =
+                        -24.0 *
+                        const Interval(
+                          0.0,
+                          0.65,
+                          curve: Curves.easeOutQuad,
+                        ).transform(t);
 
                     // 2. Animasi Masuk Login (Glides up dari bawah + scale 0.94 -> 1.0 + fade in)
-                    final enterOpacity = const Interval(0.20, 1.0, curve: Curves.easeOutCubic).transform(t);
-                    final enterScale = 0.94 + 0.06 * const Interval(0.20, 1.0, curve: Curves.easeOutCubic).transform(t);
-                    final enterTranslateY = 55.0 * (1.0 - const Interval(0.20, 1.0, curve: Curves.easeOutCubic).transform(t));
+                    final enterOpacity = const Interval(
+                      0.20,
+                      1.0,
+                      curve: Curves.easeOutCubic,
+                    ).transform(t);
+                    final enterScale =
+                        0.94 +
+                        0.06 *
+                            const Interval(
+                              0.20,
+                              1.0,
+                              curve: Curves.easeOutCubic,
+                            ).transform(t);
+                    final enterTranslateY =
+                        55.0 *
+                        (1.0 -
+                            const Interval(
+                              0.20,
+                              1.0,
+                              curve: Curves.easeOutCubic,
+                            ).transform(t));
 
                     // 3. Efek cahaya transisi oranye lembut di latar
-                    final glowOpacity = (math.sin(t * math.pi) * 0.35).clamp(0.0, 0.35);
+                    final glowOpacity = (math.sin(t * math.pi) * 0.35).clamp(
+                      0.0,
+                      0.35,
+                    );
 
                     return Stack(
                       fit: StackFit.expand,
@@ -246,7 +287,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                   center: Alignment.center,
                                   radius: 0.95,
                                   colors: [
-                                    TkaColors.orange.withValues(alpha: glowOpacity),
+                                    TkaColors.orange.withValues(
+                                      alpha: glowOpacity,
+                                    ),
                                     Colors.transparent,
                                   ],
                                 ),
@@ -300,10 +343,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       color: Colors.white,
       child: Stack(
         children: [
-          const Onboarding3(
-            isActive: true,
-            pageOffset: 0.0,
-          ),
+          const Onboarding3(isActive: true, pageOffset: 0.0),
           Positioned(
             left: 0,
             right: 0,
@@ -372,11 +412,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ),
           ),
           SizedBox(width: 10),
-          Icon(
-            Icons.arrow_forward_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
+          Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),
         ],
       ),
     );

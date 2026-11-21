@@ -58,8 +58,7 @@ class _Onboarding3State extends State<Onboarding3>
       isActive: widget.isActive,
       pageOffset: widget.pageOffset,
       title: 'Kelola Perjalanan\ndengan Fleksibel',
-      description:
-          'Cek tiket, ubah jadwal, atau batalkan\nkapan saja dengan jaminan 100% praktis.',
+      description: 'Cek tiket, ubah jadwal, atau batalkan\nkapan saja dengan jaminan 100% praktis.',
       illustrationBuilder: _buildScene,
     );
   }
@@ -91,10 +90,7 @@ class _Onboarding3State extends State<Onboarding3>
               child: Transform.translate(
                 offset: Offset(parallax, 0),
                 child: CustomPaint(
-                  painter: _SoftPastelAtmospherePainter(
-                    ambient: a,
-                    intro: t,
-                  ),
+                  painter: _SoftPastelAtmospherePainter(ambient: a, intro: t),
                 ),
               ),
             ),
@@ -488,10 +484,7 @@ class _SoftPastelAtmospherePainter extends CustomPainter {
   final double ambient;
   final double intro;
 
-  _SoftPastelAtmospherePainter({
-    required this.ambient,
-    required this.intro,
-  });
+  _SoftPastelAtmospherePainter({required this.ambient, required this.intro});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -502,11 +495,7 @@ class _SoftPastelAtmospherePainter extends CustomPainter {
     final skyRect = Rect.fromLTWH(0, 0, w, h);
     final skyPaint = Paint()
       ..shader = const LinearGradient(
-        colors: [
-          Color(0xFFEBF4FE),
-          Color(0xFFFFF2E6),
-          Color(0xFFFFF9ED),
-        ],
+        colors: [Color(0xFFEBF4FE), Color(0xFFFFF2E6), Color(0xFFFFF9ED)],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(skyRect);

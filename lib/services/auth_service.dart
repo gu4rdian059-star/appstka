@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'session_service.dart';
 import 'supabase_service.dart';
 
@@ -8,11 +9,7 @@ class AuthResult {
   final String message;
   final User? user;
 
-  const AuthResult({
-    required this.success,
-    required this.message,
-    this.user,
-  });
+  const AuthResult({required this.success, required this.message, this.user});
 }
 
 class AuthService {
@@ -67,7 +64,9 @@ class AuthService {
         });
         debugPrint('✅ Profile berhasil disimpan ke tabel Supabase.');
       } catch (tableErr) {
-        debugPrint('Catatan tabel profiles: $tableErr (Auth Supabase tetap sukses)');
+        debugPrint(
+          'Catatan tabel profiles: $tableErr (Auth Supabase tetap sukses)',
+        );
       }
 
       // 3. Simpan preferensi identifier agar saat diarahkan ke Login kolom email otomatis terisi
@@ -82,7 +81,9 @@ class AuthService {
         user: user,
       );
     } on AuthException catch (e) {
-      debugPrint('❌ Supabase AuthException: ${e.message} (Code: ${e.statusCode})');
+      debugPrint(
+        '❌ Supabase AuthException: ${e.message} (Code: ${e.statusCode})',
+      );
 
       final lowerMsg = e.message.toLowerCase();
 
@@ -93,7 +94,9 @@ class AuthService {
           lowerMsg.contains('unexpected_failure') ||
           lowerMsg.contains('saving new user') ||
           lowerMsg.contains('signup')) {
-        debugPrint('⚠️ Supabase Auth notice (${e.message}). Menyimpan data profil langsung ke database Supabase...');
+        debugPrint(
+          '⚠️ Supabase Auth notice (${e.message}). Menyimpan data profil langsung ke database Supabase...',
+        );
 
         final fallbackId = 'usr-${DateTime.now().millisecondsSinceEpoch}';
         try {
@@ -141,7 +144,8 @@ class AuthService {
 
       return const AuthResult(
         success: true,
-        message: 'Registrasi berhasil disimpan! Silakan masuk dengan akun Anda.',
+        message:
+            'Registrasi berhasil disimpan! Silakan masuk dengan akun Anda.',
       );
     }
   }
@@ -172,7 +176,8 @@ class AuthService {
           if (metadata != null && metadata['full_name'] != null) {
             displayName = metadata['full_name'].toString();
           } else {
-            displayName = displayName[0].toUpperCase() + displayName.substring(1);
+            displayName =
+                displayName[0].toUpperCase() + displayName.substring(1);
           }
 
           await SessionService.saveUserSession(
@@ -182,7 +187,22 @@ class AuthService {
             password: password,
           );
 
-          debugPrint('✅ Login Supabase Berhasil untuk: $displayName ($cleanEmail)');
+          // Sinkronisasi saldo akun dari Supabase profiles
+          try {
+            final prof = await client
+                .from('profiles')
+                .select('balance')
+                .eq('email', cleanEmail)
+                .maybeSingle();
+            if (prof != null && prof['balance'] != null) {
+              final bal = (prof['balance'] as num).toInt();
+              await SessionService.setUserBalance(bal);
+            }
+          } catch (_) {}
+
+          debugPrint(
+            '✅ Login Supabase Berhasil untuk: $displayName ($cleanEmail)',
+          );
           return AuthResult(
             success: true,
             message: 'Berhasil masuk ke akun.',
@@ -257,10 +277,7 @@ class AuthService {
       emailOrPhone: cleanInput,
     );
 
-    return const AuthResult(
-      success: true,
-      message: 'Berhasil masuk ke akun.',
-    );
+    return const AuthResult(success: true, message: 'Berhasil masuk ke akun.');
   }
 
   /// Memastikan ada sesi Supabase Auth yang aktif untuk user saat ini.
@@ -273,18 +290,33 @@ class AuthService {
       }
 
       final account = await SessionService.getActiveAccount();
-      String email = (account?['email'] ?? await SessionService.getUserEmail() ?? '').toString().trim().toLowerCase();
-      String password = (account?['password'] ?? await SessionService.getUserPassword() ?? 'database').toString();
-      String name = (account?['name'] ?? await SessionService.getUserName()).toString();
-      String phone = (account?['phone'] ?? await SessionService.getUserPhone()).toString();
+      String email =
+          (account?['email'] ?? await SessionService.getUserEmail() ?? '')
+              .toString()
+              .trim()
+              .toLowerCase();
+      String password =
+          (account?['password'] ??
+                  await SessionService.getUserPassword() ??
+                  'database')
+              .toString();
+      String name = (account?['name'] ?? await SessionService.getUserName())
+          .toString();
+      String phone = (account?['phone'] ?? await SessionService.getUserPhone())
+          .toString();
 
       if (email.isEmpty || !email.contains('@')) return null;
 
-      debugPrint('🔄 Menghubungkan sesi Supabase Auth otomatis untuk $email...');
+      debugPrint(
+        '🔄 Menghubungkan sesi Supabase Auth otomatis untuk $email...',
+      );
 
       // 1. Coba signInWithPassword terlebih dahulu
       try {
-        final res = await client.auth.signInWithPassword(email: email, password: password);
+        final res = await client.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
         if (res.user != null) {
           debugPrint('✅ Auto-login Supabase Auth berhasil: ${res.user!.id}');
           await SessionService.saveUserSession(
@@ -305,11 +337,7 @@ class AuthService {
         final upRes = await client.auth.signUp(
           email: email,
           password: password,
-          data: {
-            'full_name': name,
-            'phone': phone,
-            'role': 'passenger',
-          },
+          data: {'full_name': name, 'phone': phone, 'role': 'passenger'},
         );
         if (upRes.user != null) {
           debugPrint('✅ Auto-signUp Supabase Auth berhasil: ${upRes.user!.id}');
@@ -332,4 +360,3 @@ class AuthService {
     return SupabaseService.client.auth.currentUser;
   }
 }
-

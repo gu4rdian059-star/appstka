@@ -16,7 +16,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
   bool _obscureNew = true;
   bool _obscureConfirm = true;
   bool _biometricEnabled = true;
-  bool _twoFactorEnabled = true;
+  final bool _twoFactorEnabled = true;
 
   bool _hasMin8 = false;
   bool _hasUpperLower = false;
@@ -36,8 +36,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
     final text = _newPassController.text;
     setState(() {
       _hasMin8 = text.length >= 8;
-      _hasUpperLower = text.contains(RegExp(r'[A-Z]')) && text.contains(RegExp(r'[a-z]'));
-      _hasSymbolOrNumber = text.contains(RegExp(r'[0-9]')) && text.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'));
+      _hasUpperLower =
+          text.contains(RegExp(r'[A-Z]')) && text.contains(RegExp(r'[a-z]'));
+      _hasSymbolOrNumber =
+          text.contains(RegExp(r'[0-9]')) &&
+          text.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'));
     });
   }
 
@@ -91,7 +94,10 @@ class _SecurityScreenState extends State<SecurityScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline_rounded, color: Color(0xFF062056)),
+            icon: const Icon(
+              Icons.help_outline_rounded,
+              color: Color(0xFF062056),
+            ),
             onPressed: () {},
           ),
           Padding(
@@ -129,7 +135,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
                           color: const Color(0xFF062056),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.verified_user_rounded, color: Colors.white, size: 18),
+                        child: const Icon(
+                          Icons.verified_user_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       const Text(
@@ -142,14 +152,21 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFF7ED),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.circle, size: 6, color: Color(0xFFF26716)),
+                            Icon(
+                              Icons.circle,
+                              size: 6,
+                              color: Color(0xFFF26716),
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'Terproteksi',
@@ -167,7 +184,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   const SizedBox(height: 10),
                   const Text(
                     'Sangat Baik & Terverifikasi',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF1B1E28)),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1B1E28),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Container(
@@ -178,12 +199,19 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.access_time_rounded, size: 16, color: Colors.grey),
+                        const Icon(
+                          Icons.access_time_rounded,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Terakhir diperbarui kata sandi: 45 hari yang lalu (12 Sep 2024).',
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade700,
+                            ),
                           ),
                         ),
                       ],
@@ -211,11 +239,19 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.vpn_key_rounded, size: 18, color: Color(0xFF062056)),
+                          Icon(
+                            Icons.vpn_key_rounded,
+                            size: 18,
+                            color: Color(0xFF062056),
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Ubah Kata Sandi',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF062056),
+                            ),
                           ),
                         ],
                       ),
@@ -231,11 +267,26 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Kata Sandi Saat Ini', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Kata Sandi Saat Ini',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       TextButton(
                         onPressed: () {},
-                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
-                        child: const Text('Lupa kata sandi?', style: TextStyle(fontSize: 11.5, color: Color(0xFF062056))),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                        ),
+                        child: const Text(
+                          'Lupa kata sandi?',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF062056),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -247,12 +298,27 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFD),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscureCurrent ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
-                        onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                        icon: Icon(
+                          _obscureCurrent
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 18,
+                        ),
+                        onPressed: () =>
+                            setState(() => _obscureCurrent = !_obscureCurrent),
                       ),
                     ),
                   ),
@@ -260,7 +326,10 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   const SizedBox(height: 12),
 
                   // Kata Sandi Baru
-                  const Text('Kata Sandi Baru', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Kata Sandi Baru',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _newPassController,
@@ -269,12 +338,27 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFD),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
-                        onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                        icon: Icon(
+                          _obscureNew
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 18,
+                        ),
+                        onPressed: () =>
+                            setState(() => _obscureNew = !_obscureNew),
                       ),
                     ),
                   ),
@@ -294,13 +378,26 @@ class _SecurityScreenState extends State<SecurityScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Kekuatan Sandi', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                            const Text(
+                              'Kekuatan Sandi',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
+                            ),
                             Text(
-                              _hasMin8 && _hasUpperLower && _hasSymbolOrNumber ? 'Kuat' : 'Sedang',
+                              _hasMin8 && _hasUpperLower && _hasSymbolOrNumber
+                                  ? 'Kuat'
+                                  : 'Sedang',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: _hasMin8 && _hasUpperLower && _hasSymbolOrNumber ? const Color(0xFF062056) : Colors.orange,
+                                color:
+                                    _hasMin8 &&
+                                        _hasUpperLower &&
+                                        _hasSymbolOrNumber
+                                    ? const Color(0xFF062056)
+                                    : Colors.orange,
                               ),
                             ),
                           ],
@@ -308,15 +405,33 @@ class _SecurityScreenState extends State<SecurityScreen> {
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            Expanded(child: Container(height: 4, decoration: BoxDecoration(color: const Color(0xFF062056), borderRadius: BorderRadius.circular(2)))),
-                            const SizedBox(width: 4),
-                            Expanded(child: Container(height: 4, decoration: BoxDecoration(color: const Color(0xFF062056), borderRadius: BorderRadius.circular(2)))),
+                            Expanded(
+                              child: Container(
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF062056),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Container(
                                 height: 4,
                                 decoration: BoxDecoration(
-                                  color: _hasSymbolOrNumber ? const Color(0xFF062056) : Colors.grey.shade300,
+                                  color: const Color(0xFF062056),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Container(
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: _hasSymbolOrNumber
+                                      ? const Color(0xFF062056)
+                                      : Colors.grey.shade300,
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
@@ -326,9 +441,15 @@ class _SecurityScreenState extends State<SecurityScreen> {
                         const SizedBox(height: 8),
                         _buildCheckItem('Minimal 8 karakter', _hasMin8),
                         const SizedBox(height: 4),
-                        _buildCheckItem('Kombinasi huruf besar & huruf kecil', _hasUpperLower),
+                        _buildCheckItem(
+                          'Kombinasi huruf besar & huruf kecil',
+                          _hasUpperLower,
+                        ),
                         const SizedBox(height: 4),
-                        _buildCheckItem('Mengandung angka & simbol spesial (!@#\$)', _hasSymbolOrNumber),
+                        _buildCheckItem(
+                          'Mengandung angka & simbol spesial (!@#\$)',
+                          _hasSymbolOrNumber,
+                        ),
                       ],
                     ),
                   ),
@@ -336,7 +457,10 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   const SizedBox(height: 12),
 
                   // Konfirmasi Kata Sandi Baru
-                  const Text('Konfirmasi Kata Sandi Baru', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Konfirmasi Kata Sandi Baru',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _confirmPassController,
@@ -345,12 +469,27 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFD),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
-                        onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                        icon: Icon(
+                          _obscureConfirm
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 18,
+                        ),
+                        onPressed: () =>
+                            setState(() => _obscureConfirm = !_obscureConfirm),
                       ),
                     ),
                   ),
@@ -363,13 +502,22 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF062056),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       onPressed: _savePassword,
-                      icon: const Icon(Icons.save_rounded, size: 18, color: Colors.white),
+                      icon: const Icon(
+                        Icons.save_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                       label: const Text(
                         'Simpan Kata Sandi Baru',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -392,11 +540,19 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.fingerprint_rounded, size: 20, color: Color(0xFF062056)),
+                      Icon(
+                        Icons.fingerprint_rounded,
+                        size: 20,
+                        color: Color(0xFF062056),
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Autentikasi & Biometrik',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF062056),
+                        ),
                       ),
                     ],
                   ),
@@ -410,20 +566,27 @@ class _SecurityScreenState extends State<SecurityScreen> {
                           children: [
                             Text(
                               'Login Biometrik (Fingerprint / Face ID)',
-                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             SizedBox(height: 2),
                             Text(
                               'Masuk lebih cepat dan aman tanpa memasukkan kata sandi setiap saat.',
-                              style: TextStyle(fontSize: 11, color: Colors.grey),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       Switch(
                         value: _biometricEnabled,
-                        activeColor: const Color(0xFF062056),
-                        onChanged: (val) => setState(() => _biometricEnabled = val),
+                        activeThumbColor: const Color(0xFF062056),
+                        onChanged: (val) =>
+                            setState(() => _biometricEnabled = val),
                       ),
                     ],
                   ),
@@ -440,18 +603,28 @@ class _SecurityScreenState extends State<SecurityScreen> {
                               children: [
                                 const Text(
                                   'Verifikasi 2 Langkah (2FA)',
-                                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                                 const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFE8F5E9),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Text(
                                     'Aktif',
-                                    style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32)),
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF2E7D32),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -459,16 +632,26 @@ class _SecurityScreenState extends State<SecurityScreen> {
                             const SizedBox(height: 2),
                             const Text(
                               'Kirim kode OTP via WhatsApp atau SMS saat login di perangkat baru.',
-                              style: TextStyle(fontSize: 11, color: Colors.grey),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             const Row(
                               children: [
-                                Icon(Icons.chat_bubble_outline_rounded, size: 12, color: Colors.grey),
+                                Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  size: 12,
+                                  color: Colors.grey,
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'Terhubung ke nomor (+62) 857-4849-••••',
-                                  style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               ],
                             ),
@@ -477,7 +660,13 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       ),
                       TextButton(
                         onPressed: () {},
-                        child: const Text('Atur', style: TextStyle(color: Color(0xFF062056), fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'Atur',
+                          style: TextStyle(
+                            color: Color(0xFF062056),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -500,11 +689,19 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.devices_rounded, size: 18, color: Color(0xFF062056)),
+                      Icon(
+                        Icons.devices_rounded,
+                        size: 18,
+                        color: Color(0xFF062056),
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Sesi Login Aktif',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF062056),
+                        ),
                       ),
                     ],
                   ),
@@ -518,7 +715,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   // Perangkat 1
                   Row(
                     children: [
-                      const Icon(Icons.phone_android_rounded, size: 22, color: Color(0xFF062056)),
+                      const Icon(
+                        Icons.phone_android_rounded,
+                        size: 22,
+                        color: Color(0xFF062056),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -528,30 +729,47 @@ class _SecurityScreenState extends State<SecurityScreen> {
                               children: [
                                 const Text(
                                   'Samsung Galaxy S23',
-                                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                                 const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF062056),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Text(
                                     'Perangkat Ini',
-                                    style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                             const Text(
                               'Surabaya, Indonesia • Aktif sekarang',
-                              style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.grey,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.circle, size: 8, color: Color(0xFFF26716)),
+                      const Icon(
+                        Icons.circle,
+                        size: 8,
+                        color: Color(0xFFF26716),
+                      ),
                     ],
                   ),
 
@@ -560,7 +778,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   // Perangkat 2
                   Row(
                     children: [
-                      const Icon(Icons.laptop_chromebook_rounded, size: 22, color: Colors.grey),
+                      const Icon(
+                        Icons.laptop_chromebook_rounded,
+                        size: 22,
+                        color: Colors.grey,
+                      ),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Column(
@@ -568,25 +790,36 @@ class _SecurityScreenState extends State<SecurityScreen> {
                           children: [
                             Text(
                               'Chrome di Windows PC',
-                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             Text(
                               'Jakarta, Indonesia • Terakhir aktif kemarin 14:20',
-                              style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.grey,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       OutlinedButton(
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           minimumSize: Size.zero,
                           side: const BorderSide(color: Color(0xFFDC2626)),
                         ),
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Sesi Chrome Windows berhasil dikeluarkan.'),
+                              content: Text(
+                                'Sesi Chrome Windows berhasil dikeluarkan.',
+                              ),
                               backgroundColor: Color(0xFF062056),
                               behavior: SnackBarBehavior.floating,
                             ),
@@ -594,7 +827,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
                         },
                         child: const Text(
                           'Keluarkan',
-                          style: TextStyle(fontSize: 11, color: Color(0xFFDC2626), fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFDC2626),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -607,16 +844,26 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Semua sesi perangkat lain telah dikeluarkan.'),
+                            content: Text(
+                              'Semua sesi perangkat lain telah dikeluarkan.',
+                            ),
                             backgroundColor: Color(0xFF062056),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
                       },
-                      icon: const Icon(Icons.logout_rounded, size: 16, color: Color(0xFFDC2626)),
+                      icon: const Icon(
+                        Icons.logout_rounded,
+                        size: 16,
+                        color: Color(0xFFDC2626),
+                      ),
                       label: const Text(
                         'Keluarkan dari Semua Perangkat Lain',
-                        style: TextStyle(color: Color(0xFFDC2626), fontSize: 12, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Color(0xFFDC2626),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -636,7 +883,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
               child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.shield_outlined, color: Color(0xFF64748B), size: 18),
+                  Icon(
+                    Icons.shield_outlined,
+                    color: Color(0xFF64748B),
+                    size: 18,
+                  ),
                   SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -644,12 +895,20 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       children: [
                         Text(
                           'Peringatan Keamanan TKA',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF334155),
+                          ),
                         ),
                         SizedBox(height: 3),
                         Text(
                           'TKA tidak pernah meminta kata sandi atau kode OTP Anda melalui telepon, SMS, atau media sosial apapun. Jaga kerahasiaan data akun Anda demi kenyamanan perjalanan.',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.35),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                            height: 1.35,
+                          ),
                         ),
                       ],
                     ),
@@ -669,7 +928,9 @@ class _SecurityScreenState extends State<SecurityScreen> {
     return Row(
       children: [
         Icon(
-          checked ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+          checked
+              ? Icons.check_circle_rounded
+              : Icons.radio_button_unchecked_rounded,
           size: 14,
           color: checked ? const Color(0xFF10B981) : Colors.grey,
         ),
@@ -686,4 +947,3 @@ class _SecurityScreenState extends State<SecurityScreen> {
     );
   }
 }
-

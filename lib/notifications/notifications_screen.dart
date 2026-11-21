@@ -4,18 +4,15 @@ class NotificationsScreen extends StatefulWidget {
   final VoidCallback? onOpenTickets;
   final VoidCallback? onOpenOrders;
 
-  const NotificationsScreen({
-    super.key,
-    this.onOpenTickets,
-    this.onOpenOrders,
-  });
+  const NotificationsScreen({super.key, this.onOpenTickets, this.onOpenOrders});
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  int _activeFilter = 0; // 0: Semua, 1: Transaksi, 2: Perjalanan, 3: Info Sistem
+  int _activeFilter =
+      0; // 0: Semua, 1: Transaksi, 2: Perjalanan, 3: Info Sistem
 
   final List<String> _filters = [
     'Semua (5)',
@@ -32,8 +29,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       'icon': Icons.confirmation_number_outlined,
       'time': '10 menit lalu',
       'title': 'E-Ticket Telah Diterbitkan (PNR: TKA-9921XB)',
-      'desc':
-          'Pembayaran berhasil dikonfirmasi. E-Ticket KA Argo Bromo Anggrek siap digunakan untuk keberangkatan 25 Okt 2024 pukul 08:20 WIB.',
+      'desc': 'Pembayaran berhasil dikonfirmasi. E-Ticket KA Argo Bromo Anggrek siap digunakan untuk keberangkatan 25 Okt 2024 pukul 08:20 WIB.',
       'subInfo': 'Gerbong EKS-2 / Kursi 7A',
       'action': 'Lihat Tiket',
       'isTicket': true,
@@ -45,8 +41,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       'icon': Icons.access_time_filled_rounded,
       'time': '45 menit lalu',
       'title': 'Selesaikan Pembayaran Reservasi TKA-8832KL',
-      'desc':
-          'Segera selesaikan pembayaran tiket KA Taksaka sebelum pukul 15:30 WIB agar kode booking tidak kedaluwarsa.',
+      'desc': 'Segera selesaikan pembayaran tiket KA Taksaka sebelum pukul 15:30 WIB agar kode booking tidak kedaluwarsa.',
       'subInfo': 'Tersisa 32 Menit',
       'action': 'Bayar Sekarang',
       'isPayment': true,
@@ -58,8 +53,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       'icon': Icons.receipt_long_rounded,
       'time': '1 jam lalu',
       'title': 'Kode Booking Sementara Berhasil Dibuat',
-      'desc':
-          'Pemesanan tiket Anda telah dicatat sistem. Silakan lanjutkan ke pembayaran dalam batas waktu 60 menit.',
+      'desc': 'Pemesanan tiket Anda telah dicatat sistem. Silakan lanjutkan ke pembayaran dalam batas waktu 60 menit.',
       'subInfo': 'KODE: TKA-8832KL • Instruksi Transfer',
     },
     {
@@ -69,8 +63,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       'icon': Icons.train_rounded,
       'time': '3 jam lalu',
       'title': 'Pemberitahuan Peron Keberangkatan KA 2',
-      'desc':
-          'Rangkaian KA Argo Bromo Anggrek siap boarding di Peron 3 Stasiun Gambir. Harap merapat ke hall eksekutif.',
+      'desc': 'Rangkaian KA Argo Bromo Anggrek siap boarding di Peron 3 Stasiun Gambir. Harap merapat ke hall eksekutif.',
       'subInfo': 'Peron 3 • Stasiun Gambir (GMR)',
     },
     {
@@ -80,8 +73,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       'icon': Icons.check_circle_outline_rounded,
       'time': 'Kemarin, 14:15',
       'title': 'Pembayaran Virtual Account Terverifikasi',
-      'desc':
-          'Pembayaran sebesar Rp640.000 melalui BCA Virtual Account telah berhasil diverifikasi oleh sistem TKA.',
+      'desc': 'Pembayaran sebesar Rp640.000 melalui BCA Virtual Account telah berhasil diverifikasi oleh sistem TKA.',
       'subInfo': 'Ref: VA-9901842910 • Lunas',
     },
   ];
@@ -131,10 +123,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
               );
             },
-            icon: const Icon(Icons.done_all_rounded, size: 16, color: Color(0xFF062056)),
+            icon: const Icon(
+              Icons.done_all_rounded,
+              size: 16,
+              color: Color(0xFF062056),
+            ),
             label: const Text(
               'Tandai Semua Dibaca',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF062056),
+              ),
             ),
           ),
         ],
@@ -150,22 +150,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: _filters.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, i) {
                 final isSelected = _activeFilter == i;
                 return GestureDetector(
                   onTap: () => setState(() => _activeFilter = i),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF062056) : const Color(0xFFF1F4F9),
+                      color: isSelected
+                          ? const Color(0xFF062056)
+                          : const Color(0xFFF1F4F9),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       _filters[i],
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w500,
                         color: isSelected ? Colors.white : Colors.grey.shade700,
                       ),
                     ),
@@ -184,7 +191,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.notifications_off_outlined, size: 48, color: Colors.grey),
+                        Icon(
+                          Icons.notifications_off_outlined,
+                          size: 48,
+                          color: Colors.grey,
+                        ),
                         SizedBox(height: 12),
                         Text(
                           'Tidak ada notifikasi pada kategori ini.',
@@ -197,7 +208,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.all(16),
                     itemCount: list.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final item = list[index];
                       final tagColor = item['tagColor'] as Color;
@@ -223,7 +234,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: tagColor.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(6),
@@ -239,7 +253,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 ),
                                 Text(
                                   item['time'] as String,
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade500,
+                                  ),
                                 ),
                               ],
                             ),
@@ -279,9 +296,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       backgroundColor: item['isPayment'] == true
                                           ? const Color(0xFFF26716)
                                           : const Color(0xFF062056),
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 4,
+                                      ),
                                       minimumSize: Size.zero,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
                                     ),
                                     onPressed: () {
                                       Navigator.of(context).maybePop();
@@ -313,4 +335,3 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 }
-

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/session_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -55,8 +56,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   String _formatDate(DateTime d) {
     const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
     ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
@@ -119,11 +130,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline_rounded, color: Color(0xFF062056)),
+            icon: const Icon(
+              Icons.help_outline_rounded,
+              color: Color(0xFF062056),
+            ),
             onPressed: () {},
           ),
           IconButton(
-            icon: const Icon(Icons.info_outline_rounded, color: Color(0xFF062056)),
+            icon: const Icon(
+              Icons.info_outline_rounded,
+              color: Color(0xFF062056),
+            ),
             onPressed: () {},
           ),
         ],
@@ -152,23 +169,38 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       side: const BorderSide(color: Color(0xFF062056)),
                     ),
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Fitur ganti foto profil aktif (JPG/PNG maks. 2MB).'),
+                          content: Text(
+                            'Fitur ganti foto profil aktif (JPG/PNG maks. 2MB).',
+                          ),
                           backgroundColor: Color(0xFF062056),
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
                     },
-                    icon: const Icon(Icons.camera_alt_outlined, size: 14, color: Color(0xFF062056)),
+                    icon: const Icon(
+                      Icons.camera_alt_outlined,
+                      size: 14,
+                      color: Color(0xFF062056),
+                    ),
                     label: const Text(
                       'Ubah Foto Profil',
-                      style: TextStyle(fontSize: 11.5, color: Color(0xFF062056), fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF062056),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -206,15 +238,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('User ID TKA', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const Text(
+                        'User ID TKA',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
                       Row(
                         children: [
                           const Text(
                             'TKA-8821940',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF062056),
+                            ),
                           ),
                           const SizedBox(width: 4),
-                          Icon(Icons.lock_outline_rounded, size: 12, color: Colors.grey.shade500),
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            size: 12,
+                            color: Colors.grey.shade500,
+                          ),
                         ],
                       ),
                     ],
@@ -223,23 +266,39 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text('Member Silver Priority', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'Member Silver Priority',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE8F5E9),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
                           'Akun Terverifikasi e-KTP',
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32)),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2E7D32),
+                          ),
                         ),
                       ),
                     ],
@@ -263,12 +322,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 children: [
                   const Text(
                     'Data Pribadi Penumpang',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF062056),
+                    ),
                   ),
                   const Divider(height: 20),
 
                   // Nama Lengkap
-                  const Text('Nama Lengkap (Sesuai KTP)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Nama Lengkap (Sesuai KTP)',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _nameController,
@@ -276,16 +342,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFD),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
                     ),
                   ),
 
                   const SizedBox(height: 14),
 
                   // Tipe Dokumen Identitas
-                  const Text('Tipe Dokumen Identitas', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Tipe Dokumen Identitas',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
@@ -318,7 +396,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 14),
 
                   // Nomor Identitas (NIK)
-                  const Text('Nomor Identitas (NIK)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Nomor Identitas (NIK)',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _nikController,
@@ -327,9 +408,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF1F5F9),
-                      suffixIcon: const Icon(Icons.lock_rounded, size: 16, color: Colors.grey),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                      suffixIcon: const Icon(
+                        Icons.lock_rounded,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -341,12 +432,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 14),
 
                   // Tanggal Lahir
-                  const Text('Tanggal Lahir', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Tanggal Lahir',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 4),
                   InkWell(
                     onTap: _pickBirthDate,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFD),
                         borderRadius: BorderRadius.circular(10),
@@ -355,8 +452,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(_formatDate(_birthDate), style: const TextStyle(fontSize: 13)),
-                          const Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey),
+                          Text(
+                            _formatDate(_birthDate),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 16,
+                            color: Colors.grey,
+                          ),
                         ],
                       ),
                     ),
@@ -365,7 +469,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 14),
 
                   // Jenis Kelamin
-                  const Text('Jenis Kelamin', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Jenis Kelamin',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
@@ -375,9 +482,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             value: 0,
                             groupValue: _gender,
                             activeColor: const Color(0xFF062056),
-                            onChanged: (val) => setState(() => _gender = val ?? 0),
+                            onChanged: (val) =>
+                                setState(() => _gender = val ?? 0),
                           ),
-                          const Text('Laki-laki', style: TextStyle(fontSize: 12.5)),
+                          const Text(
+                            'Laki-laki',
+                            style: TextStyle(fontSize: 12.5),
+                          ),
                         ],
                       ),
                       const SizedBox(width: 18),
@@ -387,9 +498,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             value: 1,
                             groupValue: _gender,
                             activeColor: const Color(0xFF062056),
-                            onChanged: (val) => setState(() => _gender = val ?? 1),
+                            onChanged: (val) =>
+                                setState(() => _gender = val ?? 1),
                           ),
-                          const Text('Perempuan', style: TextStyle(fontSize: 12.5)),
+                          const Text(
+                            'Perempuan',
+                            style: TextStyle(fontSize: 12.5),
+                          ),
                         ],
                       ),
                     ],
@@ -413,7 +528,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 children: [
                   const Text(
                     'Kontak & Notifikasi Perjalanan',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF062056),
+                    ),
                   ),
                   const Divider(height: 20),
 
@@ -421,11 +540,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Alamat Email Tiket', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Alamat Email Tiket',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       TextButton(
                         onPressed: () {},
-                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
-                        child: const Text('Ubah', style: TextStyle(fontSize: 11.5, color: Color(0xFF062056), fontWeight: FontWeight.bold)),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                        ),
+                        child: const Text(
+                          'Ubah',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF062056),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -436,8 +571,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFD),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
                     ),
                   ),
 
@@ -447,16 +588,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Nomor Handphone (WhatsApp / SMS)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Nomor Handphone (WhatsApp / SMS)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE8F5E9),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text(
                           'OTP Aktif',
-                          style: TextStyle(fontSize: 9.5, color: Color(0xFF2E7D32), fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: Color(0xFF2E7D32),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -468,8 +622,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFD),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
                     ),
                   ),
                 ],
@@ -488,12 +648,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF64748B)),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: Color(0xFF64748B),
+                  ),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Ketentuan Boarding Stasiun KA: Perubahan nama atau NIK harus sesuai dengan dokumen identitas resmi untuk keperluan verifikasi tiket di boarding gate stasiun kereta api.',
-                      style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), height: 1.35),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Color(0xFF64748B),
+                        height: 1.35,
+                      ),
                     ),
                   ),
                 ],
@@ -509,12 +677,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF062056),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: _saveProfile,
                 child: const Text(
                   'Simpan Perubahan',
-                  style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -538,4 +712,3 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 }
-

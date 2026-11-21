@@ -333,8 +333,16 @@ class DriftingCloudsPainter extends CustomPainter {
       final y = c[1] * size.height * maxY + 10;
 
       canvas.drawCircle(Offset(x, y), 18 * scale, paint);
-      canvas.drawCircle(Offset(x + 24 * scale, y - 10 * scale), 24 * scale, paint);
-      canvas.drawCircle(Offset(x + 52 * scale, y - 2 * scale), 19 * scale, paint);
+      canvas.drawCircle(
+        Offset(x + 24 * scale, y - 10 * scale),
+        24 * scale,
+        paint,
+      );
+      canvas.drawCircle(
+        Offset(x + 52 * scale, y - 2 * scale),
+        19 * scale,
+        paint,
+      );
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(x - 6 * scale, y, 80 * scale, 16 * scale),
@@ -384,7 +392,12 @@ class FlyingBirdsPainter extends CustomPainter {
       final path = Path()
         ..moveTo(x - s, y - s * (0.3 + flap))
         ..quadraticBezierTo(x - s * 0.45, y - s * 0.55, x, y)
-        ..quadraticBezierTo(x + s * 0.45, y - s * 0.55, x + s, y - s * (0.3 + flap));
+        ..quadraticBezierTo(
+          x + s * 0.45,
+          y - s * 0.55,
+          x + s,
+          y - s * (0.3 + flap),
+        );
       canvas.drawPath(path, paint);
     }
   }
@@ -392,4 +405,3 @@ class FlyingBirdsPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant FlyingBirdsPainter old) => old.t != t;
 }
-

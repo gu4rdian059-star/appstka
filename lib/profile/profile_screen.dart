@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/session_service.dart';
 import '../services/user_db_service.dart';
 import '../login/login_screen.dart';
@@ -11,11 +12,7 @@ class ProfileScreen extends StatefulWidget {
   final bool embedded;
   final VoidCallback? onOpenOrders;
 
-  const ProfileScreen({
-    super.key,
-    this.embedded = false,
-    this.onOpenOrders,
-  });
+  const ProfileScreen({super.key, this.embedded = false, this.onOpenOrders});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -41,7 +38,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final savedPhone = await SessionService.getUserPhone();
     final points = await SessionService.getUserPoints();
     final tier = await SessionService.getUserTier();
-    final completed = await UserDatabaseService.getBookings(statusFilter: 'Selesai');
+    final completed = await UserDatabaseService.getBookings(
+      statusFilter: 'Selesai',
+    );
 
     if (mounted) {
       setState(() {
@@ -78,15 +77,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openSecurity() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SecurityScreen()),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const SecurityScreen()));
   }
 
   void _openNotifications() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
   }
 
   void _handleLogout() async {
@@ -114,10 +111,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Keluar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Keluar',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -126,7 +131,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirm == true && mounted) {
       await SessionService.clearSession();
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen(alreadyAnimated: true)),
+        MaterialPageRoute(
+          builder: (_) => const LoginScreen(alreadyAnimated: true),
+        ),
         (route) => false,
       );
     }
@@ -142,7 +149,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         leading: widget.embedded
             ? null
             : IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF062056)),
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Color(0xFF062056),
+                ),
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
         title: Row(
@@ -151,9 +161,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'assets/images/logo_tka_full.png',
               height: 24,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Text(
+              errorBuilder: (_, _, _) => const Text(
                 'TKA',
-                style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF062056)),
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF062056),
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -169,7 +182,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF062056)),
+            icon: const Icon(
+              Icons.notifications_outlined,
+              color: Color(0xFF062056),
+            ),
             onPressed: _openNotifications,
           ),
         ],
@@ -199,7 +215,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     radius: 28,
                     backgroundColor: const Color(0xFF062056),
                     child: Text(
-                      _name.isNotEmpty ? _name.split(' ').map((w) => w[0]).take(2).join() : 'SM',
+                      _name.isNotEmpty
+                          ? _name.split(' ').map((w) => w[0]).take(2).join()
+                          : 'SM',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -230,7 +248,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               onTap: _openEditProfile,
                               child: const Padding(
                                 padding: EdgeInsets.all(4),
-                                child: Icon(Icons.edit_outlined, size: 16, color: Color(0xFF062056)),
+                                child: Icon(
+                                  Icons.edit_outlined,
+                                  size: 16,
+                                  color: Color(0xFF062056),
+                                ),
                               ),
                             ),
                           ],
@@ -239,14 +261,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE8F5E9),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: const Row(
                                 children: [
-                                  Icon(Icons.check_circle_rounded, size: 10, color: Color(0xFF2E7D32)),
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    size: 10,
+                                    color: Color(0xFF2E7D32),
+                                  ),
                                   SizedBox(width: 3),
                                   Text(
                                     'Terverifikasi e-KTP',
@@ -264,11 +293,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 5),
                         Text(
                           _email,
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                         Text(
                           _phone,
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ],
                     ),
@@ -298,7 +333,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             color: Color(0xFFFFF3E0),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.monetization_on_rounded, size: 18, color: Color(0xFFF26716)),
+                          child: const Icon(
+                            Icons.monetization_on_rounded,
+                            size: 18,
+                            color: Color(0xFFF26716),
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Column(
@@ -306,9 +345,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Text(
                               '$_points Poin',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF062056),
+                              ),
                             ),
-                            const Text('TKA Poin', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                            const Text(
+                              'TKA Poin',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.grey,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -332,7 +381,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             color: Color(0xFFE8F1FC),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.train_rounded, size: 18, color: Color(0xFF062056)),
+                          child: const Icon(
+                            Icons.train_rounded,
+                            size: 18,
+                            color: Color(0xFF062056),
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Column(
@@ -340,9 +393,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Text(
                               '$_completedTrips Rute Selesai',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF062056),
+                              ),
                             ),
-                            const Text('Perjalanan', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                            const Text(
+                              'Perjalanan',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.grey,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -367,7 +430,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFD700), size: 24),
+                  Icon(
+                    Icons.workspace_premium_rounded,
+                    color: Color(0xFFFFD700),
+                    size: 24,
+                  ),
                   SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -463,7 +530,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Layanan Pusat Bantuan CS TKA siap melayani 24/7.'),
+                        content: Text(
+                          'Layanan Pusat Bantuan CS TKA siap melayani 24/7.',
+                        ),
                         backgroundColor: Color(0xFF062056),
                         behavior: SnackBarBehavior.floating,
                       ),
@@ -490,10 +559,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFFFEE2E2), width: 1.5),
                   backgroundColor: const Color(0xFFFEF2F2),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: _handleLogout,
-                icon: const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 18),
+                icon: const Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 18,
+                ),
                 label: const Text(
                   'Keluar dari Akun',
                   style: TextStyle(
@@ -517,7 +592,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildMenuGroup({required String title, required List<_MenuItem> items}) {
+  Widget _buildMenuGroup({
+    required String title,
+    required List<_MenuItem> items,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -552,11 +630,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(item.icon, size: 18, color: const Color(0xFF062056)),
+                      child: Icon(
+                        item.icon,
+                        size: 18,
+                        color: const Color(0xFF062056),
+                      ),
                     ),
                     title: Text(
                       item.title,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1B1E28)),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1B1E28),
+                      ),
                     ),
                     subtitle: Text(
                       item.subtitle,
@@ -564,19 +650,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     trailing: item.trailingText != null
                         ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.grey.shade100,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               item.trailingText!,
-                              style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                              ),
                             ),
                           )
-                        : const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey),
+                        : const Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: Colors.grey,
+                          ),
                   ),
-                  if (i < items.length - 1) const Divider(height: 1, indent: 56),
+                  if (i < items.length - 1)
+                    const Divider(height: 1, indent: 56),
                 ],
               );
             }),
@@ -602,4 +699,3 @@ class _MenuItem {
     required this.onTap,
   });
 }
-

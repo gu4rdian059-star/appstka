@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -142,7 +143,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
           child: AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
-              final scale = 1.0 + 0.05 * math.sin(_pulseController.value * math.pi);
+              final scale =
+                  1.0 + 0.05 * math.sin(_pulseController.value * math.pi);
               return Transform.scale(scale: scale, child: child);
             },
             child: Container(
@@ -264,13 +266,22 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                 child: TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(fontSize: 13.5, color: Color(0xFF062056)),
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    color: Color(0xFF062056),
+                  ),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     hintText: 'nama@email.com',
-                    hintStyle: TextStyle(fontSize: 13, color: Color(0xFFA6ABB8)),
-                    prefixIcon: Icon(Icons.mail_outline_rounded,
-                        color: Color(0xFF9EA3AE), size: 20),
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFFA6ABB8),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.mail_outline_rounded,
+                      color: Color(0xFF9EA3AE),
+                      size: 20,
+                    ),
                     contentPadding: EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
@@ -373,7 +384,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.arrow_back_rounded, size: 16, color: Color(0xFF062056)),
+                Icon(
+                  Icons.arrow_back_rounded,
+                  size: 16,
+                  color: Color(0xFF062056),
+                ),
                 SizedBox(width: 6),
                 Text(
                   'Kembali ke Masuk',
@@ -431,7 +446,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
           child: Text(
             'Kami telah mengirimkan tautan reset kata sandi ke:\n${_emailController.text}\n\nSilakan periksa kotak masuk atau folder spam email Anda.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.5),
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade600,
+              height: 1.5,
+            ),
           ),
         ),
         const SizedBox(height: 32),
@@ -498,4 +517,3 @@ class _DottedDividerPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

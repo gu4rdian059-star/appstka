@@ -1,5 +1,9 @@
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'supabase_service.dart';
 
 class SessionService {
   static const String _keyRememberMe = 'tka_remember_me';
@@ -133,26 +137,65 @@ class SessionService {
     return prefs.getString(_keyUserNik) ?? '3514062607090001';
   }
 
-  /// Ambil saldo TKAPay user aktif (User baru = 0, demo Samuel = 250000)
+  /// Ambil saldo TKAPay user aktif (User baru = 0, demo Samuel = 250000, sinkron ke Supabase)
   static Future<int> getUserBalance() async {
     final prefs = await SharedPreferences.getInstance();
     final email = (await getUserEmail())?.toLowerCase().trim() ?? '';
     final name = (await getUserName()).toLowerCase().trim();
     final isDemoSamuel = email == 'kocak@co.id' || name == 'samuel';
     final key = '$_keyUserBalancePrefix$email';
-    if (!prefs.containsKey(key)) {
+
+    int? localBal = prefs.getInt(key);
+
+    // Jika belum ada atau bernilai 0 dan ada email, periksa ke database Supabase
+    if ((localBal == null || localBal == 0) && email.isNotEmpty) {
+      try {
+        final client = SupabaseService.client;
+        final res = await client
+            .from('profiles')
+            .select('balance')
+            .eq('email', email)
+            .maybeSingle();
+        if (res != null && res['balance'] != null) {
+          final dbBal = (res['balance'] as num).toInt();
+          if (dbBal > 0) {
+            await prefs.setInt(key, dbBal);
+            return dbBal;
+          }
+        }
+      } catch (e) {
+        debugPrint('Catatan sinkronisasi saldo dari Supabase: $e');
+      }
+    }
+
+    if (localBal == null) {
       final defaultBalance = isDemoSamuel ? 250000 : 0;
       await prefs.setInt(key, defaultBalance);
       return defaultBalance;
     }
-    return prefs.getInt(key) ?? (isDemoSamuel ? 250000 : 0);
+    return localBal;
   }
 
-  /// Update saldo TKAPay user aktif
+  /// Update saldo TKAPay user aktif (disimpan ke lokal dan disinkronkan ke Supabase)
   static Future<void> setUserBalance(int amount) async {
     final prefs = await SharedPreferences.getInstance();
     final email = (await getUserEmail())?.toLowerCase().trim() ?? '';
-    await prefs.setInt('$_keyUserBalancePrefix$email', amount);
+    if (email.isNotEmpty) {
+      await prefs.setInt('$_keyUserBalancePrefix$email', amount);
+      // Sinkronkan ke tabel profiles di Supabase jika terhubung
+      try {
+        final client = SupabaseService.client;
+        await client
+            .from('profiles')
+            .update({'balance': amount})
+            .eq('email', email);
+        debugPrint(
+          '✅ [Supabase Balance] Saldo Rp$amount berhasil diperbarui di Supabase untuk $email',
+        );
+      } catch (e) {
+        debugPrint('Catatan update saldo di Supabase: $e');
+      }
+    }
   }
 
   /// Ambil TKA Poin user aktif (User baru = 0, demo Samuel = 1450)
@@ -189,7 +232,8 @@ class SessionService {
       await prefs.setString(key, defaultTier);
       return defaultTier;
     }
-    return prefs.getString(key) ?? (isDemoSamuel ? 'Member Gold' : 'Member Baru');
+    return prefs.getString(key) ??
+        (isDemoSamuel ? 'Member Gold' : 'Member Baru');
   }
 
   /// Simpan kredensial akun terdaftar untuk fallback login instan
@@ -241,15 +285,22 @@ class SessionService {
     return null;
   }
 
-  /// Hapus sesi (Logout)
+  /// Hapus sesi login aktif (Logout tanpa menghapus saldo atau akun tersimpan)
   static Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     final remember = prefs.getBool(_keyRememberMe) ?? false;
     final savedId = prefs.getString(_keyIdentifier);
 
-    await prefs.clear();
+    // Hapus hanya sesi kredensial login aktif pengguna
+    await prefs.remove(_keyUserName);
+    await prefs.remove(_keyUserEmail);
+    await prefs.remove(_keyUserPhone);
+    await prefs.remove(_keyUserNik);
+    await prefs.remove(_keyUserPassword);
+    await prefs.remove(_keyUserId);
+    await prefs.setBool(_keyIsLoggedIn, false);
 
-    // Pertahankan Ingat Saya jika sebelumnya dicentang
+    // Pertahankan preferensi Ingat Saya jika sebelumnya dicentang
     if (remember && savedId != null) {
       await prefs.setBool(_keyRememberMe, true);
       await prefs.setString(_keyIdentifier, savedId);

@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../orders/refund_screen.dart';
+import '../orders/order_detail_screen.dart';
 import '../intercity/antar_kota_screen.dart';
 import '../services/user_db_service.dart';
 
 class MyTicketsScreen extends StatefulWidget {
   final bool embedded;
+  final String? initialBookingId;
 
-  const MyTicketsScreen({super.key, this.embedded = false});
+  const MyTicketsScreen({
+    super.key,
+    this.embedded = false,
+    this.initialBookingId,
+  });
 
   @override
   State<MyTicketsScreen> createState() => _MyTicketsScreenState();
@@ -17,11 +24,20 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   int _activeTab = 0; // 0: Tiket Aktif, 1: Riwayat Tiket
   List<BookingModel> _allBookings = [];
   bool _isLoading = true;
+  int _selectedTicketIndex = 0;
+  int _selectedPassengerIndex = 0;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadTickets();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTickets() async {
@@ -30,6 +46,17 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       setState(() {
         _allBookings = List.from(list);
         _isLoading = false;
+        if (widget.initialBookingId != null) {
+          final idx = _activeTickets.indexWhere(
+            (b) => b.bookingId == widget.initialBookingId,
+          );
+          if (idx != -1) {
+            _selectedTicketIndex = idx;
+          }
+        }
+        if (_selectedTicketIndex >= _activeTickets.length) {
+          _selectedTicketIndex = 0;
+        }
       });
     }
   }
@@ -81,8 +108,13 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               textCapitalization: TextCapitalization.characters,
               decoration: InputDecoration(
                 hintText: 'Contoh: TKA-9921XB',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -95,7 +127,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF062056),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () {
               Navigator.of(ctx).pop();
@@ -108,7 +142,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               );
               _loadTickets();
             },
-            child: const Text('Sinkronkan', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Sinkronkan',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -128,7 +165,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         leading: widget.embedded
             ? null
             : IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF062056)),
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Color(0xFF062056),
+                ),
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
         title: Row(
@@ -137,9 +177,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               'assets/images/logo_tka_full.png',
               height: 24,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Text(
+              errorBuilder: (_, _, _) => const Text(
                 'TKA',
-                style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF062056)),
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF062056),
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -159,14 +202,23 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFF062056), width: 1),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 minimumSize: Size.zero,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               onPressed: _showManualPnrDialog,
               child: const Text(
                 'Cek Kode Booking',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF062056),
+                ),
               ),
             ),
           ),
@@ -192,7 +244,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       onTap: () => setState(() => _activeTab = 0),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: _activeTab == 0 ? const Color(0xFF062056) : Colors.transparent,
+                          color: _activeTab == 0
+                              ? const Color(0xFF062056)
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(9),
                         ),
                         alignment: Alignment.center,
@@ -201,7 +255,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.bold,
-                            color: _activeTab == 0 ? Colors.white : Colors.grey.shade700,
+                            color: _activeTab == 0
+                                ? Colors.white
+                                : Colors.grey.shade700,
                           ),
                         ),
                       ),
@@ -212,7 +268,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       onTap: () => setState(() => _activeTab = 1),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: _activeTab == 1 ? const Color(0xFF062056) : Colors.transparent,
+                          color: _activeTab == 1
+                              ? const Color(0xFF062056)
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(9),
                         ),
                         alignment: Alignment.center,
@@ -221,7 +279,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.bold,
-                            color: _activeTab == 1 ? Colors.white : Colors.grey.shade700,
+                            color: _activeTab == 1
+                                ? Colors.white
+                                : Colors.grey.shade700,
                           ),
                         ),
                       ),
@@ -239,8 +299,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _activeTab == 0
-                    ? _buildActiveTicketView()
-                    : _buildHistoryTicketView(),
+                ? _buildActiveTicketView()
+                : _buildHistoryTicketView(),
           ),
         ],
       ),
@@ -254,13 +314,251 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       return _buildEmptyActiveTicketsView();
     }
 
-    final ticket = activeList.first;
+    if (_selectedTicketIndex >= activeList.length) {
+      _selectedTicketIndex = 0;
+    }
+
+    final ticket = activeList[_selectedTicketIndex];
+    final manifest = ticket.passengerList;
+    if (_selectedPassengerIndex >= manifest.length) {
+      _selectedPassengerIndex = 0;
+    }
+    final activePassenger = manifest[_selectedPassengerIndex];
+    final displaySeat = activePassenger['seat'] ?? ticket.seatNumber;
+    final displayPassengerName =
+        activePassenger['name'] ?? ticket.passengerName;
 
     return SingleChildScrollView(
+      controller: _scrollController,
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Selector jika ada lebih dari 1 tiket aktif
+          if (activeList.length > 1) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.confirmation_number_rounded,
+                      size: 16,
+                      color: Color(0xFF062056),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Pilih Tiket Aktif (${activeList.length})',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF062056),
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F1FC),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Tiket ${_selectedTicketIndex + 1} dari ${activeList.length}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0256B8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 48,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: activeList.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, i) {
+                  final t = activeList[i];
+                  final isSelected = _selectedTicketIndex == i;
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedTicketIndex = i;
+                        _selectedPassengerIndex = 0;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF062056)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? const Color(0xFF062056)
+                              : Colors.grey.shade300,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF062056)
+                                      .withValues(alpha: 0.18),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.train_rounded,
+                            size: 15,
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF062056),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${t.originCode} ➔ ${t.destCode}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF062056),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.white.withValues(alpha: 0.22)
+                                  : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              t.bookingId,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Selector Penumpang jika dalam 1 tiket ada beberapa orang
+          if (manifest.length > 1) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Pilih Penumpang untuk Boarding:',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF062056),
+                  ),
+                ),
+                Text(
+                  '${manifest.length} Penumpang',
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 38,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: manifest.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, pIdx) {
+                  final p = manifest[pIdx];
+                  final isPSelected = _selectedPassengerIndex == pIdx;
+                  return InkWell(
+                    onTap: () => setState(() => _selectedPassengerIndex = pIdx),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isPSelected
+                            ? const Color(0xFF0256B8)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isPSelected
+                              ? const Color(0xFF0256B8)
+                              : Colors.grey.shade300,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.person_rounded,
+                            size: 14,
+                            color: isPSelected
+                                ? Colors.white
+                                : Colors.grey.shade700,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'P${pIdx + 1}: ${p['name'] ?? 'Penumpang'} (${p['seat'] ?? '-'})',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: isPSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isPSelected
+                                  ? Colors.white
+                                  : const Color(0xFF062056),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+
           // ================= KARTU BOARDING PASS UTAMA =================
           Container(
             decoration: BoxDecoration(
@@ -279,34 +577,60 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               children: [
                 // Banner Status Boarding (Dark Navy)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: const BoxDecoration(
                     color: Color(0xFF062056),
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.directions_train_rounded, color: Colors.white, size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            'STATUS BOARDING: Gate Dibuka 07:45 WIB',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.directions_train_rounded,
                               color: Colors.white,
+                              size: 18,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                'STATUS BOARDING: Gate Dibuka 07:45 WIB',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      Text(
-                        '-45 Mnt',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFF26716),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF26716).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          '-45 Mnt',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFF26716),
+                          ),
                         ),
                       ),
                     ],
@@ -332,14 +656,21 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFE8F5E9),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Row(
                               children: [
-                                Icon(Icons.circle, size: 6, color: Color(0xFF2E7D32)),
+                                Icon(
+                                  Icons.circle,
+                                  size: 6,
+                                  color: Color(0xFF2E7D32),
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'Siap Boarding',
@@ -369,7 +700,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       const SizedBox(height: 2),
                       Text(
                         '${ticket.trainClass} (Tepat Waktu)',
-                        style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey,
+                        ),
                       ),
 
                       const SizedBox(height: 14),
@@ -391,20 +725,48 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                               ),
                               Text(
                                 '${ticket.originName} (${ticket.originCode})',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              Text(ticket.travelDate, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                              Text(
+                                ticket.travelDate,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                ),
+                              ),
                             ],
                           ),
                           Column(
                             children: [
-                              const Text('Langsung', style: TextStyle(fontSize: 9.5, color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
+                              const Text(
+                                'Langsung',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  color: Color(0xFF10B981),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               const SizedBox(height: 4),
                               Row(
                                 children: [
-                                  Container(width: 14, height: 1.5, color: Colors.grey.shade300),
-                                  const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF062056)),
-                                  Container(width: 14, height: 1.5, color: Colors.grey.shade300),
+                                  Container(
+                                    width: 14,
+                                    height: 1.5,
+                                    color: Colors.grey.shade300,
+                                  ),
+                                  const Icon(
+                                    Icons.arrow_forward_rounded,
+                                    size: 14,
+                                    color: Color(0xFF062056),
+                                  ),
+                                  Container(
+                                    width: 14,
+                                    height: 1.5,
+                                    color: Colors.grey.shade300,
+                                  ),
                                 ],
                               ),
                             ],
@@ -422,9 +784,18 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                               ),
                               Text(
                                 '${ticket.destName} (${ticket.destCode})',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              Text(ticket.travelDate, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                              Text(
+                                ticket.travelDate,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -441,7 +812,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                             children: [
                               const Text(
                                 'KODE BOOKING (PNR)',
-                                style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               Row(
                                 children: [
@@ -456,8 +831,13 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                                   IconButton(
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
-                                    icon: const Icon(Icons.copy_rounded, size: 13, color: Colors.grey),
-                                    onPressed: () => _copyCode(ticket.bookingId),
+                                    icon: const Icon(
+                                      Icons.copy_rounded,
+                                      size: 13,
+                                      color: Colors.grey,
+                                    ),
+                                    onPressed: () =>
+                                        _copyCode(ticket.bookingId),
                                   ),
                                 ],
                               ),
@@ -468,10 +848,14 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                             children: [
                               const Text(
                                 'TEMPAT DUDUK',
-                                style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               Text(
-                                ticket.seatNumber,
+                                displaySeat,
                                 style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w900,
@@ -485,8 +869,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
 
                       const SizedBox(height: 8),
                       Text(
-                        'PENUMPANG: ${ticket.passengerName} (Dewasa • NIK terverifikasi)',
-                        style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                        'PENUMPANG: $displayPassengerName (Dewasa • NIK terverifikasi)',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey,
+                        ),
                       ),
 
                       const SizedBox(height: 18),
@@ -508,7 +895,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                  ),
                                 ),
                                 child: Stack(
                                   alignment: Alignment.center,
@@ -546,7 +935,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                               const SizedBox(height: 2),
                               const Text(
                                 'Dapat dipindai tanpa koneksi internet (Offline Ready)',
-                                style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ],
                           ),
@@ -565,7 +957,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.location_on_rounded, size: 18, color: Color(0xFF062056)),
+                            const Icon(
+                              Icons.location_on_rounded,
+                              size: 18,
+                              color: Color(0xFF062056),
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Column(
@@ -582,7 +978,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                                   const SizedBox(height: 2),
                                   const Text(
                                     'Pintu masuk Boarding Gate Jalur 3, Hall Eksekutif Lantai 2. Layanan cetak struk boarding pass mandiri tersedia di Kiosk B-12.',
-                                    style: TextStyle(fontSize: 11, color: Color(0xFF334155), height: 1.3),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF334155),
+                                      height: 1.3,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -600,21 +1000,32 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF062056),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Tiket PDF berhasil diunduh ke perangkat Anda.'),
+                                content: Text(
+                                  'Tiket PDF berhasil diunduh ke perangkat Anda.',
+                                ),
                                 backgroundColor: Color(0xFF10B981),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
                           },
-                          icon: const Icon(Icons.download_rounded, size: 18, color: Colors.white),
+                          icon: const Icon(
+                            Icons.download_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
                           label: const Text(
                             'Download Tiket (PDF)',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -627,21 +1038,69 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Color(0xFF062056)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('E-ticket telah dikirim ke ${ticket.passengerEmail}'),
+                                content: Text(
+                                  'E-ticket telah dikirim ke ${ticket.passengerEmail}',
+                                ),
                                 backgroundColor: const Color(0xFF062056),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
                           },
-                          icon: const Icon(Icons.share_rounded, size: 16, color: Color(0xFF062056)),
+                          icon: const Icon(
+                            Icons.share_rounded,
+                            size: 16,
+                            color: Color(0xFF062056),
+                          ),
                           label: const Text(
                             'Kirim ke Email / Bagikan',
-                            style: TextStyle(color: Color(0xFF062056), fontWeight: FontWeight.bold, fontSize: 13),
+                            style: TextStyle(
+                              color: Color(0xFF062056),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      SizedBox(
+                        width: double.infinity,
+                        height: 46,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF0256B8)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    OrderDetailScreen.fromBooking(ticket),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.receipt_long_rounded,
+                            size: 16,
+                            color: Color(0xFF0256B8),
+                          ),
+                          label: const Text(
+                            'Lihat Detail Pesanan & Penumpang',
+                            style: TextStyle(
+                              color: Color(0xFF0256B8),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ),
@@ -651,15 +1110,16 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       Center(
                         child: TextButton(
                           onPressed: () async {
-                            final changed = await Navigator.of(context).push<bool>(
-                              MaterialPageRoute(
-                                builder: (_) => RefundScreen(
-                                  bookingCode: ticket.bookingId,
-                                  trainName: ticket.trainName,
-                                  originalPrice: ticket.totalAmount,
-                                ),
-                              ),
-                            );
+                            final changed = await Navigator.of(context)
+                                .push<bool>(
+                                  MaterialPageRoute(
+                                    builder: (_) => RefundScreen(
+                                      bookingCode: ticket.bookingId,
+                                      trainName: ticket.trainName,
+                                      originalPrice: ticket.totalAmount,
+                                    ),
+                                  ),
+                                );
                             if (changed == true) {
                               _loadTickets();
                             }
@@ -683,6 +1143,50 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
 
           const SizedBox(height: 20),
 
+          // ================= DAFTAR SEMUA TIKET AKTIF =================
+          if (activeList.length > 1) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.airplane_ticket_rounded,
+                      size: 18,
+                      color: Color(0xFF062056),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Semua Tiket Aktif (${activeList.length})',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF062056),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Ketuk untuk lihat QR',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: activeList.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, idx) {
+                final item = activeList[idx];
+                final isCurrent = idx == _selectedTicketIndex;
+                return _buildOtherActiveTicketCard(item, idx, isCurrent);
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+
           // ================= KETENTUAN KEBERANGKATAN =================
           Container(
             padding: const EdgeInsets.all(16),
@@ -696,7 +1200,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.shield_outlined, color: Color(0xFF062056), size: 18),
+                    Icon(
+                      Icons.shield_outlined,
+                      color: Color(0xFF062056),
+                      size: 18,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'Ketentuan & Panduan Keberangkatan',
@@ -733,6 +1241,303 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
     );
   }
 
+  Widget _buildOtherActiveTicketCard(
+    BookingModel item,
+    int idx,
+    bool isCurrent,
+  ) {
+    final manifest = item.passengerList;
+    final pCount = manifest.isNotEmpty ? manifest.length : 1;
+    final primaryName = manifest.isNotEmpty
+        ? (manifest.first['name'] ?? item.passengerName)
+        : item.passengerName;
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedTicketIndex = idx;
+          _selectedPassengerIndex = 0;
+        });
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isCurrent ? const Color(0xFFF0F6FF) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isCurrent ? const Color(0xFF0256B8) : Colors.grey.shade200,
+            width: isCurrent ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isCurrent
+                            ? const Color(0xFF0256B8)
+                            : const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Tiket ${idx + 1}',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: isCurrent
+                              ? Colors.white
+                              : const Color(0xFF475569),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      item.bookingId,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF062056),
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isCurrent
+                        ? const Color(0xFFE8F5E9)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isCurrent
+                            ? Icons.check_circle_rounded
+                            : Icons.arrow_upward_rounded,
+                        size: 12,
+                        color: isCurrent
+                            ? const Color(0xFF2E7D32)
+                            : Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isCurrent ? 'Sedang Tampil' : 'Ketuk Tampilkan',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isCurrent
+                              ? const Color(0xFF2E7D32)
+                              : Colors.grey.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.trainName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF062056),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${item.originCode} (${item.originName}) ➔ ${item.destCode} (${item.destName})',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      item.departureTime,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF062056),
+                      ),
+                    ),
+                    Text(
+                      item.travelDate,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.person_outline_rounded,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      pCount > 1
+                          ? '$primaryName (+$pCount Penumpang)'
+                          : primaryName,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7ED),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        item.seatNumber,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFF26716),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => OrderDetailScreen.fromBooking(item),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        'Rincian',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0256B8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    if (!isCurrent)
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF062056),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _selectedTicketIndex = idx;
+                            _selectedPassengerIndex = 0;
+                          });
+                          _scrollController.animateTo(
+                            0,
+                            duration: const Duration(milliseconds: 350),
+                            curve: Curves.easeOutCubic,
+                          );
+                        },
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.qr_code_rounded,
+                              size: 13,
+                              color: Colors.white,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Pilih QR',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyActiveTicketsView() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -747,7 +1552,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               color: Color(0xFFE8F1FC),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.confirmation_number_outlined, size: 48, color: Color(0xFF062056)),
+            child: const Icon(
+              Icons.confirmation_number_outlined,
+              size: 48,
+              color: Color(0xFF062056),
+            ),
           ),
           const SizedBox(height: 18),
           const Text(
@@ -773,7 +1582,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF062056),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () async {
               await Navigator.of(context).push(
@@ -781,14 +1592,23 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               );
               _loadTickets();
             },
-            child: const Text('Cari & Pesan Tiket Kereta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Cari & Pesan Tiket Kereta',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           TextButton(
             onPressed: _showManualPnrDialog,
             child: const Text(
               'Tambahkan Tiket Manual (PNR)',
-              style: TextStyle(color: Color(0xFF062056), fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Color(0xFF062056),
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -801,7 +1621,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
 
     if (history.isEmpty) {
       return const Center(
-        child: Text('Belum ada riwayat tiket perjalanan.', style: TextStyle(color: Colors.grey)),
+        child: Text(
+          'Belum ada riwayat tiket perjalanan.',
+          style: TextStyle(color: Colors.grey),
+        ),
       );
     }
 
@@ -809,7 +1632,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: history.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, i) {
         final item = history[i];
         return Container(
@@ -840,9 +1663,14 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
-                      color: item.status == 'Dibatalkan' ? const Color(0xFFFEE2E2) : const Color(0xFFE8F5E9),
+                      color: item.status == 'Dibatalkan'
+                          ? const Color(0xFFFEE2E2)
+                          : const Color(0xFFE8F5E9),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -850,7 +1678,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.bold,
-                        color: item.status == 'Dibatalkan' ? const Color(0xFFDC2626) : const Color(0xFF2E7D32),
+                        color: item.status == 'Dibatalkan'
+                            ? const Color(0xFFDC2626)
+                            : const Color(0xFF2E7D32),
                       ),
                     ),
                   ),
@@ -872,7 +1702,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               const SizedBox(height: 6),
               Text(
                 '${item.originName} (${item.originCode}) ➔ ${item.destName} (${item.destCode})',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               Row(
@@ -911,7 +1744,11 @@ class _GuideItem extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.check_circle_outline_rounded, size: 16, color: Color(0xFF10B981)),
+        const Icon(
+          Icons.check_circle_outline_rounded,
+          size: 16,
+          color: Color(0xFF10B981),
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -919,12 +1756,20 @@ class _GuideItem extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1B1E28)),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1B1E28),
+                ),
               ),
               const SizedBox(height: 2),
               Text(
                 desc,
-                style: const TextStyle(fontSize: 11, color: Colors.grey, height: 1.35),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey,
+                  height: 1.35,
+                ),
               ),
             ],
           ),

@@ -97,7 +97,9 @@ class _LoginScreenState extends State<LoginScreen>
     if (text.isEmpty) {
       setState(() {
         _isRegistered = false;
-        _identifierError = _hasTouchedIdentifier ? 'Email atau no. handphone wajib diisi' : null;
+        _identifierError = _hasTouchedIdentifier
+            ? 'Email atau no. handphone wajib diisi'
+            : null;
       });
       return;
     }
@@ -106,7 +108,8 @@ class _LoginScreenState extends State<LoginScreen>
     final isPhoneDigits = RegExp(r'^\+?[0-9]+$').hasMatch(text);
     if (isPhoneDigits) {
       // Validasi nomor HP: diawali 08, 628, atau +628, panjang 10-13 digit
-      final isValidPhone = RegExp(r'^(?:\+628|628|08)[0-9]{8,11}$').hasMatch(text);
+      final isValidPhone = RegExp(r'^(?:\+628|628|08)[0-9]{8,11}$')
+          .hasMatch(text);
       setState(() {
         if (isValidPhone) {
           _isRegistered = true;
@@ -120,7 +123,8 @@ class _LoginScreenState extends State<LoginScreen>
                 !text.startsWith('+62')) {
               _identifierError = 'Nomor HP harus diawali 08 atau 628';
             } else if (text.length < 10) {
-              _identifierError = 'Nomor HP minimal 10 digit (${text.length}/10)';
+              _identifierError =
+                  'Nomor HP minimal 10 digit (${text.length}/10)';
             } else if (text.length > 13) {
               _identifierError = 'Nomor HP maksimal 13 digit';
             } else {
@@ -135,7 +139,9 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     // Cek apakah format Email
-    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
     if (emailRegex.hasMatch(text)) {
       setState(() {
         _isRegistered = true;
@@ -146,9 +152,11 @@ class _LoginScreenState extends State<LoginScreen>
         _isRegistered = false;
         if (_hasTouchedIdentifier) {
           if (text.contains('@')) {
-            _identifierError = 'Format email belum lengkap (contoh: nama@tka.id)';
+            _identifierError =
+                'Format email belum lengkap (contoh: nama@tka.id)';
           } else if (text.length > 3) {
-            _identifierError = 'Gunakan format email (@...) atau no. HP (08...)';
+            _identifierError =
+                'Gunakan format email (@...) atau no. HP (08...)';
           } else {
             _identifierError = null;
           }
@@ -197,8 +205,11 @@ class _LoginScreenState extends State<LoginScreen>
       setState(() => _identifierError = 'Email atau no. handphone wajib diisi');
       hasError = true;
     } else {
-      final isValidPhone = RegExp(r'^(?:\+628|628|08)[0-9]{8,11}$').hasMatch(id);
-      final isValidEmail = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(id);
+      final isValidPhone = RegExp(r'^(?:\+628|628|08)[0-9]{8,11}$')
+          .hasMatch(id);
+      final isValidEmail = RegExp(
+        r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+      ).hasMatch(id);
       if (isValidPhone || isValidEmail) {
         setState(() {
           _isRegistered = true;
@@ -218,7 +229,9 @@ class _LoginScreenState extends State<LoginScreen>
       setState(() => _passwordError = 'Kata sandi wajib diisi');
       hasError = true;
     } else if (pw.length < 8) {
-      setState(() => _passwordError = 'Kata sandi minimal 8 karakter (${pw.length}/8)');
+      setState(
+        () => _passwordError = 'Kata sandi minimal 8 karakter (${pw.length}/8)',
+      );
       hasError = true;
     } else {
       setState(() => _passwordError = null);
@@ -227,7 +240,9 @@ class _LoginScreenState extends State<LoginScreen>
     if (hasError) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Harap lengkapi email/no HP dan kata sandi dengan benar.'),
+          content: Text(
+            'Harap lengkapi email/no HP dan kata sandi dengan benar.',
+          ),
           backgroundColor: Color(0xFFD32F2F),
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
@@ -252,24 +267,22 @@ class _LoginScreenState extends State<LoginScreen>
         final adminName = (id.toLowerCase() == 'admin@tka.id')
             ? 'Bambang Sudiro, M.T.'
             : (id.contains('@')
-                ? '${id.split('@').first[0].toUpperCase()}${id.split('@').first.substring(1)} (Admin)'
-                : 'Administrator TKA');
+                  ? '${id.split('@').first[0].toUpperCase()}${id.split('@').first.substring(1)} (Admin)'
+                  : 'Administrator TKA');
 
-        await SessionService.saveUserSession(
-          name: adminName,
-          emailOrPhone: id,
-        );
+        await SessionService.saveUserSession(name: adminName, emailOrPhone: id);
 
         if (!mounted) return;
         setState(() => _isLoading = false);
 
+        await _showLoginSuccessDialog(adminName, isAdmin: true);
+        if (!mounted) return;
+
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             transitionDuration: const Duration(milliseconds: 650),
-            pageBuilder: (_, _, _) => AdminDashboardScreen(
-              adminEmail: id,
-              adminName: adminName,
-            ),
+            pageBuilder: (_, _, _) =>
+                AdminDashboardScreen(adminEmail: id, adminName: adminName),
             transitionsBuilder: (_, animation, _, child) {
               return FadeTransition(opacity: animation, child: child);
             },
@@ -290,6 +303,11 @@ class _LoginScreenState extends State<LoginScreen>
       if (authResult.success) {
         final userName = await SessionService.getUserName();
         if (!mounted) return;
+
+        // Validasi & Animasi Pop-up Sukses Login (Sesuai Permintaan User)
+        await _showLoginSuccessDialog(userName);
+        if (!mounted) return;
+
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             transitionDuration: const Duration(milliseconds: 650),
@@ -302,13 +320,130 @@ class _LoginScreenState extends State<LoginScreen>
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authResult.message),
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(child: Text(authResult.message)),
+              ],
+            ),
             backgroundColor: const Color(0xFFDC2626),
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
     });
+  }
+
+  Future<void> _showLoginSuccessDialog(String userName, {bool isAdmin = false}) async {
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'Login Success',
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      transitionDuration: const Duration(milliseconds: 350),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutBack),
+          child: FadeTransition(opacity: anim1, child: child),
+        );
+      },
+      pageBuilder: (ctx, anim1, anim2) {
+        Future.delayed(const Duration(milliseconds: 1400), () {
+          if (ctx.mounted) {
+            Navigator.of(ctx).pop();
+          }
+        });
+
+        return Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 36),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 42,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    isAdmin ? 'Admin Terverifikasi!' : 'Login Berhasil!',
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF062056),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Selamat datang kembali, $userName',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF64748B),
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0256B8)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        isAdmin ? 'Membuka panel admin...' : 'Menyiapkan beranda Anda...',
+                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showBiometricDialog() {
@@ -440,10 +575,7 @@ class _LoginScreenState extends State<LoginScreen>
                     final p = formSlide.value;
                     return Transform.translate(
                       offset: Offset(0, 520 * (1 - p)),
-                      child: Opacity(
-                        opacity: p.clamp(0.0, 1.0),
-                        child: child,
-                      ),
+                      child: Opacity(opacity: p.clamp(0.0, 1.0), child: child),
                     );
                   },
                   child: _buildFormCard(context),
@@ -487,9 +619,7 @@ class _LoginScreenState extends State<LoginScreen>
         children: [
           // Garis-garis rel dekoratif abstrak di latar header
           Positioned.fill(
-            child: CustomPaint(
-              painter: _HeaderCurvedLinesPainter(),
-            ),
+            child: CustomPaint(painter: _HeaderCurvedLinesPainter()),
           ),
 
           Column(
@@ -582,11 +712,17 @@ class _LoginScreenState extends State<LoginScreen>
                   curve: Curves.easeOutBack,
                   child: _isRegistered
                       ? Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE8F5E9),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFA5D6A7), width: 0.8),
+                            border: Border.all(
+                              color: const Color(0xFFA5D6A7),
+                              width: 0.8,
+                            ),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -790,7 +926,9 @@ class _LoginScreenState extends State<LoginScreen>
                   setState(() => _rememberMe = newVal);
                   await SessionService.setRememberMe(
                     remember: newVal,
-                    identifier: newVal ? _identifierController.text.trim() : null,
+                    identifier: newVal
+                        ? _identifierController.text.trim()
+                        : null,
                   );
                 },
                 child: Row(
@@ -809,7 +947,9 @@ class _LoginScreenState extends State<LoginScreen>
                           setState(() => _rememberMe = newVal);
                           await SessionService.setRememberMe(
                             remember: newVal,
-                            identifier: newVal ? _identifierController.text.trim() : null,
+                            identifier: newVal
+                                ? _identifierController.text.trim()
+                                : null,
                           );
                         },
                       ),
@@ -834,10 +974,16 @@ class _LoginScreenState extends State<LoginScreen>
                       pageBuilder: (_, _, _) => const ForgotPasswordScreen(),
                       transitionsBuilder: (_, anim, _, child) {
                         return SlideTransition(
-                          position: Tween(
-                            begin: const Offset(1, 0),
-                            end: Offset.zero,
-                          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+                          position:
+                              Tween(
+                                begin: const Offset(1, 0),
+                                end: Offset.zero,
+                              ).animate(
+                                CurvedAnimation(
+                                  parent: anim,
+                                  curve: Curves.easeOutCubic,
+                                ),
+                              ),
                           child: child,
                         );
                       },
@@ -926,7 +1072,9 @@ class _LoginScreenState extends State<LoginScreen>
           // ================= Pembatas "atau masuk dengan" =================
           Row(
             children: [
-              Expanded(child: Divider(color: Colors.grey.shade300, thickness: 0.8)),
+              Expanded(
+                child: Divider(color: Colors.grey.shade300, thickness: 0.8),
+              ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
@@ -938,7 +1086,9 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                 ),
               ),
-              Expanded(child: Divider(color: Colors.grey.shade300, thickness: 0.8)),
+              Expanded(
+                child: Divider(color: Colors.grey.shade300, thickness: 0.8),
+              ),
             ],
           ),
 
@@ -1025,10 +1175,7 @@ class _LoginScreenState extends State<LoginScreen>
           children: [
             const Text(
               'Belum punya akun TKA? ',
-              style: TextStyle(
-                fontSize: 13,
-                color: Color(0xFF6E7582),
-              ),
+              style: TextStyle(fontSize: 13, color: Color(0xFF6E7582)),
             ),
             GestureDetector(
               onTap: () {
@@ -1038,10 +1185,16 @@ class _LoginScreenState extends State<LoginScreen>
                     pageBuilder: (_, _, _) => const RegisterScreen(),
                     transitionsBuilder: (_, anim, _, child) {
                       return SlideTransition(
-                        position: Tween(
-                          begin: const Offset(1, 0),
-                          end: Offset.zero,
-                        ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+                        position:
+                            Tween(
+                              begin: const Offset(1, 0),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: anim,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
                         child: child,
                       );
                     },
@@ -1089,11 +1242,7 @@ class _LoginScreenState extends State<LoginScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.lock_rounded,
-              size: 13,
-              color: Colors.grey.shade500,
-            ),
+            Icon(Icons.lock_rounded, size: 13, color: Colors.grey.shade500),
             const SizedBox(width: 5),
             Text(
               'Sistem Keamanan Terenkripsi SSL 256-Bit Resmi TKA',

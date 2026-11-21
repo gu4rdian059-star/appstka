@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+
 import 'services/supabase_service.dart';
 import 'splash_screen.dart';
 
@@ -6,6 +8,17 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseService.initialize();
   runApp(const MyApp());
+}
+
+/// Scroll behavior yang mengaktifkan drag dengan mouse, touch, trackpad, dan stylus di seluruh platform (Windows, Web, Mobile)
+class AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
 }
 
 class MyApp extends StatelessWidget {
@@ -16,6 +29,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'TKA - Tiket Kereta Api',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: AppScrollBehavior(),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF062056),

@@ -69,7 +69,11 @@ class _Onboarding1State extends State<Onboarding1>
 
   Widget _buildScene(BuildContext context, Size size) {
     final topPadding = MediaQuery.paddingOf(context).top;
-    final rect = coverRect(size, 896 / 1200, alignment: const Alignment(0, 0.20));
+    final rect = coverRect(
+      size,
+      896 / 1200,
+      alignment: const Alignment(0, 0.20),
+    );
 
     return AnimatedBuilder(
       animation: Listenable.merge([intro, ambient]),
@@ -184,7 +188,10 @@ class _ScenicAtmospherePainter extends CustomPainter {
     final w = size.width;
 
     // ==================== 1. SINAR & KILAU MATAHARI PAGI ====================
-    final sunCenter = Offset(rect.left + rect.width * 0.74, rect.top + rect.height * 0.28);
+    final sunCenter = Offset(
+      rect.left + rect.width * 0.74,
+      rect.top + rect.height * 0.28,
+    );
     final sunPulse = 0.88 + 0.12 * math.sin(ambient * math.pi * 2 * 3);
 
     // Pancaran Cahaya Lembut Matahari
@@ -242,7 +249,9 @@ class _ScenicAtmospherePainter extends CustomPainter {
     for (int i = 0; i < birdOffsets.length; i++) {
       final birdPos = Offset(
         flockBaseX + birdOffsets[i].dx,
-        flockBaseY + birdOffsets[i].dy + math.sin(ambient * math.pi * 2 * 3 + i) * 3,
+        flockBaseY +
+            birdOffsets[i].dy +
+            math.sin(ambient * math.pi * 2 * 3 + i) * 3,
       );
       if (birdPos.dx > -30 && birdPos.dx < w + 30) {
         _drawFlyingBird(
@@ -257,8 +266,16 @@ class _ScenicAtmospherePainter extends CustomPainter {
     // ==================== 4. KELOPAK BUNGA & DAUN MELAYANG TERTUP ANGIN ====================
     for (int i = 0; i < 7; i++) {
       final p = (ambient * 1.5 + i * 0.16) % 1.0;
-      final px = rect.left + rect.width * 0.05 + p * rect.width * 0.85 + math.sin(p * math.pi * 3 + i) * 20;
-      final py = rect.top + rect.height * 0.10 + p * rect.height * 0.70 + math.cos(p * math.pi * 2 + i) * 15;
+      final px =
+          rect.left +
+          rect.width * 0.05 +
+          p * rect.width * 0.85 +
+          math.sin(p * math.pi * 3 + i) * 20;
+      final py =
+          rect.top +
+          rect.height * 0.10 +
+          p * rect.height * 0.70 +
+          math.cos(p * math.pi * 2 + i) * 15;
       final alpha = math.sin(p * math.pi).clamp(0.0, 1.0) * 0.75;
       if (alpha <= 0.02) continue;
 
@@ -267,8 +284,9 @@ class _ScenicAtmospherePainter extends CustomPainter {
       canvas.rotate(p * math.pi * 4 + i);
 
       final petalPaint = Paint()
-        ..color = (i % 2 == 0 ? const Color(0xFFF26716) : const Color(0xFF10B981))
-            .withValues(alpha: alpha);
+        ..color =
+            (i % 2 == 0 ? const Color(0xFFF26716) : const Color(0xFF10B981))
+                .withValues(alpha: alpha);
       canvas.drawOval(
         Rect.fromCenter(center: Offset.zero, width: 8.0, height: 4.0),
         petalPaint,
@@ -328,10 +346,7 @@ class _ScenicAtmospherePainter extends CustomPainter {
       ..close();
 
     // Warna Dasar Balon Udara (Putih Gading)
-    canvas.drawPath(
-      balloonPath,
-      Paint()..color = const Color(0xFFFFFBEB),
-    );
+    canvas.drawPath(balloonPath, Paint()..color = const Color(0xFFFFFBEB));
 
     // Garis Kontur Halus Balon
     canvas.drawPath(
@@ -353,10 +368,7 @@ class _ScenicAtmospherePainter extends CustomPainter {
       ..lineTo(halfW * 0.12, envelopeH * 0.50)
       ..lineTo(-halfW * 0.12, envelopeH * 0.50)
       ..close();
-    canvas.drawPath(
-      stripeOrange,
-      Paint()..color = TkaColors.orange,
-    );
+    canvas.drawPath(stripeOrange, Paint()..color = TkaColors.orange);
 
     // Jalur Kiri & Kanan Navy
     final stripeNavyLeft = Path()
@@ -365,10 +377,7 @@ class _ScenicAtmospherePainter extends CustomPainter {
       ..lineTo(-halfW * 0.18, envelopeH * 0.50)
       ..lineTo(-halfW * 0.36, envelopeH * 0.50)
       ..close();
-    canvas.drawPath(
-      stripeNavyLeft,
-      Paint()..color = TkaColors.navy,
-    );
+    canvas.drawPath(stripeNavyLeft, Paint()..color = TkaColors.navy);
 
     final stripeNavyRight = Path()
       ..moveTo(halfW * 0.32, -envelopeH * 0.48)
@@ -376,16 +385,23 @@ class _ScenicAtmospherePainter extends CustomPainter {
       ..lineTo(halfW * 0.36, envelopeH * 0.50)
       ..lineTo(halfW * 0.18, envelopeH * 0.50)
       ..close();
-    canvas.drawPath(
-      stripeNavyRight,
-      Paint()..color = TkaColors.navy,
-    );
+    canvas.drawPath(stripeNavyRight, Paint()..color = TkaColors.navy);
 
     // Efek Pencahayaan 3D Balon (Kilau Sisi Kiri)
     final highlightPath = Path()
       ..moveTo(-halfW * 0.85, -envelopeH * 0.25)
-      ..quadraticBezierTo(-halfW * 0.95, -envelopeH * 0.05, -halfW * 0.70, envelopeH * 0.15)
-      ..quadraticBezierTo(-halfW * 0.55, -envelopeH * 0.05, -halfW * 0.75, -envelopeH * 0.25)
+      ..quadraticBezierTo(
+        -halfW * 0.95,
+        -envelopeH * 0.05,
+        -halfW * 0.70,
+        envelopeH * 0.15,
+      )
+      ..quadraticBezierTo(
+        -halfW * 0.55,
+        -envelopeH * 0.05,
+        -halfW * 0.75,
+        -envelopeH * 0.25,
+      )
       ..close();
     canvas.drawPath(
       highlightPath,
@@ -399,8 +415,16 @@ class _ScenicAtmospherePainter extends CustomPainter {
       ..color = const Color(0xFF475569)
       ..strokeWidth = 0.8;
     final basketY = envelopeH * 0.66;
-    canvas.drawLine(Offset(-halfW * 0.30, envelopeH * 0.50), Offset(-halfW * 0.18, basketY), ropePaint);
-    canvas.drawLine(Offset(halfW * 0.30, envelopeH * 0.50), Offset(halfW * 0.18, basketY), ropePaint);
+    canvas.drawLine(
+      Offset(-halfW * 0.30, envelopeH * 0.50),
+      Offset(-halfW * 0.18, basketY),
+      ropePaint,
+    );
+    canvas.drawLine(
+      Offset(halfW * 0.30, envelopeH * 0.50),
+      Offset(halfW * 0.18, basketY),
+      ropePaint,
+    );
 
     // 3. Keranjang Anyaman Penumpang (Wicker Basket)
     final basketRect = RRect.fromRectAndRadius(
@@ -411,10 +435,7 @@ class _ScenicAtmospherePainter extends CustomPainter {
       ),
       const Radius.circular(1.5),
     );
-    canvas.drawRRect(
-      basketRect,
-      Paint()..color = const Color(0xFF92400E),
-    );
+    canvas.drawRRect(basketRect, Paint()..color = const Color(0xFF92400E));
 
     // Cahaya Nyala Api Pemanas Balon (Burner Flicker)
     final burnerPulse = 0.7 + 0.3 * math.sin(ambient * math.pi * 2 * 12);
@@ -464,8 +485,16 @@ class _ScenicAtmospherePainter extends CustomPainter {
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round;
 
-    canvas.drawLine(center.translate(-starSize, 0), center.translate(starSize, 0), p);
-    canvas.drawLine(center.translate(0, -starSize), center.translate(0, starSize), p);
+    canvas.drawLine(
+      center.translate(-starSize, 0),
+      center.translate(starSize, 0),
+      p,
+    );
+    canvas.drawLine(
+      center.translate(0, -starSize),
+      center.translate(0, starSize),
+      p,
+    );
     canvas.drawCircle(center, 1.8, Paint()..color = const Color(0xFFFEF08A));
   }
 
