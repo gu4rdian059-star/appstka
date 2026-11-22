@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/session_service.dart';
+import '../services/supabase_storage_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final String currentName;
@@ -27,6 +28,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   int _docType = 0; // 0: KTP/NIK, 1: Paspor
   int _gender = 0; // 0: Laki-laki, 1: Perempuan
   DateTime _birthDate = DateTime(1994, 6, 26);
+  String? _avatarUrl;
+  bool _isUploadingAvatar = false;
 
   @override
   void initState() {
@@ -36,6 +39,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _phoneController = TextEditingController(text: widget.currentPhone);
     _nikController = TextEditingController();
     _loadUserNik();
+    _loadUserAvatar();
+  }
+
+  Future<void> _loadUserAvatar() async {
+    final avatar = await SessionService.getUserAvatar();
+    if (mounted) {
+      setState(() => _avatarUrl = avatar);
+    }
   }
 
   Future<void> _loadUserNik() async {
@@ -82,6 +93,238 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (picked != null) {
       setState(() => _birthDate = picked);
     }
+  }
+
+  void _showAvatarBottomSheet() {
+    final name = _nameController.text.trim().isNotEmpty
+        ? _nameController.text.trim()
+        : widget.currentName;
+    final initials = name
+        .split(' ')
+        .where((e) => e.isNotEmpty)
+        .map((w) => w[0].toUpperCase())
+        .take(2)
+        .join();
+
+    final themes = [
+      {
+        'title': 'Executive Navy',
+        'badge': 'VIP',
+        'primary': const Color(0xFF062056),
+        'secondary': const Color(0xFF1E3A8A),
+      },
+      {
+        'title': 'Velocity Orange',
+        'badge': 'TKA',
+        'primary': const Color(0xFFEA580C),
+        'secondary': const Color(0xFFF97316),
+      },
+      {
+        'title': 'Emerald Express',
+        'badge': 'PRO',
+        'primary': const Color(0xFF065F46),
+        'secondary': const Color(0xFF10B981),
+      },
+      {
+        'title': 'Royal Amethyst',
+        'badge': 'ELITE',
+        'primary': const Color(0xFF581C87),
+        'secondary': const Color(0xFF8B5CF6),
+      },
+      {
+        'title': 'Crimson Ruby',
+        'badge': 'FIRST',
+        'primary': const Color(0xFF9F1239),
+        'secondary': const Color(0xFFF43F5E),
+      },
+      {
+        'title': 'Midnight Gold',
+        'badge': 'GOLD',
+        'primary': const Color(0xFF0F172A),
+        'secondary': const Color(0xFFD97706),
+      },
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(
+                  Icons.cloud_upload_rounded,
+                  color: Color(0xFF062056),
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Pilih Avatar Supabase Storage',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF062056),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Akan disimpan otomatis ke bucket Supabase Storage "avatars" (Maks 2MB, PNG).',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.85,
+                ),
+                itemCount: themes.length,
+                itemBuilder: (context, i) {
+                  final t = themes[i];
+                  final pColor = t['primary'] as Color;
+                  final sColor = t['secondary'] as Color;
+                  final badge = t['badge'] as String;
+                  final title = t['title'] as String;
+
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      setState(() => _isUploadingAvatar = true);
+                      try {
+                        final bytes =
+                            await SupabaseStorageService.generateStylizedAvatarPng(
+                              name: name,
+                              bgColor: pColor,
+                              secondaryColor: sColor,
+                              badge: badge,
+                            );
+
+                        final email = _emailController.text.trim().isNotEmpty
+                            ? _emailController.text.trim()
+                            : widget.currentEmail;
+
+                        final url = await SupabaseStorageService.uploadAvatar(
+                          userIdOrEmail: email,
+                          imageBytes: bytes,
+                        );
+
+                        if (url != null) {
+                          await SessionService.setUserAvatar(url);
+                          if (mounted) {
+                            setState(() {
+                              _avatarUrl = url;
+                              _isUploadingAvatar = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  '✅ Foto profil berhasil diunggah ke Supabase Storage (avatars)!',
+                                ),
+                                backgroundColor: Color(0xFF10B981),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        } else {
+                          if (mounted) setState(() => _isUploadingAvatar = false);
+                        }
+                      } catch (e) {
+                        debugPrint('Gagal upload avatar: $e');
+                        if (mounted) setState(() => _isUploadingAvatar = false);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [pColor, sColor],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              initials.isNotEmpty ? initials : 'TK',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF062056),
+                            ),
+                          ),
+                          Text(
+                            badge,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              color: pColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _saveProfile() async {
@@ -154,17 +397,97 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Center(
               child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 38,
-                    backgroundColor: const Color(0xFF062056),
-                    child: const Text(
-                      'MM',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 84,
+                        height: 84,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF062056),
+                            width: 2.5,
+                          ),
+                        ),
+                        child: ClipOval(
+                          child: _isUploadingAvatar
+                              ? const Center(
+                                  child: SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: Color(0xFF062056),
+                                    ),
+                                  ),
+                                )
+                              : _avatarUrl != null && _avatarUrl!.isNotEmpty
+                              ? Image.network(
+                                  _avatarUrl!,
+                                  width: 84,
+                                  height: 84,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => CircleAvatar(
+                                    radius: 38,
+                                    backgroundColor: const Color(0xFF062056),
+                                    child: Text(
+                                      _nameController.text.trim().isNotEmpty
+                                          ? _nameController.text
+                                              .trim()
+                                              .split(' ')
+                                              .where((e) => e.isNotEmpty)
+                                              .map((w) => w[0].toUpperCase())
+                                              .take(2)
+                                              .join()
+                                          : 'TK',
+                                      style: const TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : CircleAvatar(
+                                  radius: 38,
+                                  backgroundColor: const Color(0xFF062056),
+                                  child: Text(
+                                    _nameController.text.trim().isNotEmpty
+                                        ? _nameController.text
+                                            .trim()
+                                            .split(' ')
+                                            .where((e) => e.isNotEmpty)
+                                            .map((w) => w[0].toUpperCase())
+                                            .take(2)
+                                            .join()
+                                        : 'TK',
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF10B981),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.cloud_done_rounded,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
@@ -178,24 +501,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                       side: const BorderSide(color: Color(0xFF062056)),
                     ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Fitur ganti foto profil aktif (JPG/PNG maks. 2MB).',
-                          ),
-                          backgroundColor: Color(0xFF062056),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
+                    onPressed: _showAvatarBottomSheet,
                     icon: const Icon(
                       Icons.camera_alt_outlined,
                       size: 14,
                       color: Color(0xFF062056),
                     ),
                     label: const Text(
-                      'Ubah Foto Profil',
+                      'Ubah Foto Profil (Supabase)',
                       style: TextStyle(
                         fontSize: 11.5,
                         color: Color(0xFF062056),
@@ -204,9 +517,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Format JPG atau PNG maks. 2MB',
-                    style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.storage_rounded,
+                        size: 12,
+                        color: Colors.blue.shade700,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Bucket: avatars (Maks 2MB, JPG/PNG)',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: Colors.blue.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

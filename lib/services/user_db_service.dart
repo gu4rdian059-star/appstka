@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'supabase_service.dart';
 import 'session_service.dart';
 import 'auth_service.dart';
+import 'supabase_storage_service.dart';
 
 /// ============================================================================
 /// DOMAIN MODELS (Strict Typing)
@@ -198,6 +199,7 @@ class BookingModel {
   final String? cancelReason;
   final int? refundAmount;
   final List<Map<String, String>>? passengers;
+  final String? qrCodeUrl;
 
   int get passengerCount =>
       (passengers != null && passengers!.isNotEmpty) ? passengers!.length : 1;
@@ -240,6 +242,7 @@ class BookingModel {
     this.cancelReason,
     this.refundAmount,
     this.passengers,
+    this.qrCodeUrl,
   });
 
   BookingModel copyWith({
@@ -250,6 +253,7 @@ class BookingModel {
     String? cancelReason,
     int? refundAmount,
     List<Map<String, String>>? passengers,
+    String? qrCodeUrl,
   }) {
     return BookingModel(
       bookingId: bookingId,
@@ -277,6 +281,7 @@ class BookingModel {
       cancelReason: cancelReason ?? this.cancelReason,
       refundAmount: refundAmount ?? this.refundAmount,
       passengers: passengers ?? this.passengers,
+      qrCodeUrl: qrCodeUrl ?? this.qrCodeUrl,
     );
   }
 
@@ -307,6 +312,7 @@ class BookingModel {
       'cancel_reason': cancelReason,
       'refund_amount': refundAmount,
       if (passengers != null) 'passengers': passengers,
+      if (qrCodeUrl != null) 'qr_code_url': qrCodeUrl,
     };
   }
 
@@ -375,6 +381,7 @@ class BookingModel {
       cancelReason: map['cancel_reason']?.toString(),
       refundAmount: int.tryParse(map['refund_amount']?.toString() ?? ''),
       passengers: parsedPassengers,
+      qrCodeUrl: (map['qr_code_url'] ?? map['qrCodeUrl'])?.toString(),
     );
   }
 }
@@ -1663,6 +1670,24 @@ class UserDatabaseService {
         ? (manifestPassengers.first['id'] ?? '3514062607090001')
         : '3514062607090001';
 
+    // 1. Buat dan unggah QR code boarding pass utama ke Supabase Storage (tickets-qr)
+    String? mainQrUrl;
+    try {
+      final qrBytes = await SupabaseStorageService.generateTicketQrPng(
+        bookingId: baseBookingCode,
+        pnr: baseBookingCode,
+        trainName: schedule.name,
+        seatNumber: allSeats,
+      );
+      mainQrUrl = await SupabaseStorageService.uploadTicketQr(
+        bookingId: baseBookingCode,
+        pngBytes: qrBytes,
+      );
+    } catch (qrErr) {
+      debugPrint('Catatan QR boarding generation/upload: $qrErr');
+    }
+    mainQrUrl ??= SupabaseStorageService.getTicketQrUrl(baseBookingCode);
+
     // Master order booking untuk lokal
     final mainBooking = BookingModel(
       bookingId: baseBookingCode,
@@ -1688,6 +1713,7 @@ class UserDatabaseService {
       vaNumber: finalVaNumber,
       createdAt: DateTime.now(),
       passengers: List.from(manifestPassengers),
+      qrCodeUrl: mainQrUrl,
     );
 
     _bookings.insert(0, mainBooking);
@@ -1708,6 +1734,24 @@ class UserDatabaseService {
         final subBookingId = i == 0
             ? baseBookingCode
             : '$baseBookingCode-${i + 1}';
+
+        // Buat dan unggah QR tiket untuk sub-booking ini ke Supabase Storage (tickets-qr)
+        String? subQrUrl = i == 0 ? mainQrUrl : null;
+        if (subQrUrl == null) {
+          try {
+            final subQrBytes = await SupabaseStorageService.generateTicketQrPng(
+              bookingId: subBookingId,
+              pnr: subBookingId,
+              trainName: schedule.name,
+              seatNumber: pSeat,
+            );
+            subQrUrl = await SupabaseStorageService.uploadTicketQr(
+              bookingId: subBookingId,
+              pngBytes: subQrBytes,
+            );
+          } catch (_) {}
+          subQrUrl ??= SupabaseStorageService.getTicketQrUrl(subBookingId);
+        }
 
         final pBookingMap = {
           'booking_id': subBookingId,
@@ -1734,15 +1778,26 @@ class UserDatabaseService {
           'payment_method': finalPaymentMethod,
           'va_number': finalVaNumber,
           'created_at': DateTime.now().toIso8601String(),
+          if (subQrUrl != null) 'qr_code_url': subQrUrl,
         };
 
         if (_isValidUuid(savedUserId)) {
           pBookingMap['user_id'] = savedUserId!;
         }
 
-        await client.from('bookings').upsert(pBookingMap);
+        try {
+          await client.from('bookings').upsert(pBookingMap);
+        } catch (upsertErr) {
+          if (upsertErr.toString().contains('qr_code_url')) {
+            pBookingMap.remove('qr_code_url');
+            await client.from('bookings').upsert(pBookingMap);
+          } else {
+            rethrow;
+          }
+        }
+
         debugPrint(
-          '✅ [Supabase Insert Success] Penumpang ${i + 1} ($pName - $pSeat) berhasil masuk Supabase: $subBookingId',
+          '✅ [Supabase Insert Success] Penumpang ${i + 1} ($pName - $pSeat) berhasil masuk Supabase: $subBookingId (QR: $subQrUrl)',
         );
 
         if (finalStatus == 'Sudah Dibayar') {
@@ -1801,6 +1856,22 @@ class UserDatabaseService {
         vaNumber ??
         'NMID-${DateTime.now().millisecondsSinceEpoch.toString().substring(3)}';
 
+    // Buat dan unggah QR code ke Supabase Storage (tickets-qr)
+    String? qrUrl;
+    try {
+      final qrBytes = await SupabaseStorageService.generateTicketQrPng(
+        bookingId: bookingCode,
+        pnr: bookingCode,
+        trainName: schedule.name,
+        seatNumber: seat,
+      );
+      qrUrl = await SupabaseStorageService.uploadTicketQr(
+        bookingId: bookingCode,
+        pngBytes: qrBytes,
+      );
+    } catch (_) {}
+    qrUrl ??= SupabaseStorageService.getTicketQrUrl(bookingCode);
+
     final newBooking = BookingModel(
       bookingId: bookingCode,
       passengerName: passengerName,
@@ -1824,6 +1895,7 @@ class UserDatabaseService {
       paymentMethod: finalPaymentMethod,
       vaNumber: finalVaNumber,
       createdAt: DateTime.now(),
+      qrCodeUrl: qrUrl,
     );
 
     _bookings.insert(0, newBooking);
@@ -1842,10 +1914,22 @@ class UserDatabaseService {
         bookingMap.remove('user_id');
       }
 
-      final res = await client.from('bookings').insert(bookingMap).select();
-      debugPrint(
-        '✅ [Supabase Insert Success] Tiket $bookingCode berhasil masuk ke tabel bookings Supabase: $res',
-      );
+      try {
+        final res = await client.from('bookings').insert(bookingMap).select();
+        debugPrint(
+          '✅ [Supabase Insert Success] Tiket $bookingCode berhasil masuk ke tabel bookings Supabase: $res (QR: $qrUrl)',
+        );
+      } catch (insertErr) {
+        if (insertErr.toString().contains('qr_code_url')) {
+          bookingMap.remove('qr_code_url');
+          final res = await client.from('bookings').insert(bookingMap).select();
+          debugPrint(
+            '✅ [Supabase Insert Success (fallback)] Tiket $bookingCode berhasil masuk ke tabel bookings Supabase: $res',
+          );
+        } else {
+          rethrow;
+        }
+      }
 
       if (finalStatus == 'Sudah Dibayar') {
         await recordPaymentInSupabase(
@@ -2307,6 +2391,17 @@ class UserDatabaseService {
             bookingCode: b.bookingId,
             reason: b.cancelReason ?? 'Pembatalan oleh pengguna',
             refundAmount: b.refundAmount ?? (b.totalAmount * 0.75).round(),
+          );
+        }
+
+        // 4. Sinkronisasi aset kereta ke train-assets dan QR tiket ke tickets-qr di background
+        SupabaseStorageService.seedTrainAssetsToStorage();
+        for (final b in _bookings.take(5)) {
+          SupabaseStorageService.ensureTicketQrUploaded(
+            bookingId: b.bookingId,
+            pnr: b.bookingId,
+            trainName: b.trainName,
+            seatNumber: b.seatNumber,
           );
         }
       }

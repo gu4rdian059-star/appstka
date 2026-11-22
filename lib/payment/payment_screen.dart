@@ -42,8 +42,8 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  // Metode pembayaran yang dipilih
-  String _selectedMethod = 'QRIS'; // 'QRIS', 'TKAPay', 'BCA VA', 'Mandiri VA', 'BRI VA', 'BNI VA', 'GoPay', 'OVO', 'DANA', 'ShopeePay'
+  // Metode pembayaran yang dipilih (kosong secara default)
+  String _selectedMethod = '';
 
   // Saldo pengguna aktif
   int _userBalance = 0;
@@ -313,6 +313,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // Eksekusi Pembayaran Sukses
   Future<void> _processPayment() async {
+    if (_selectedMethod.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Silakan pilih salah satu metode pembayaran terlebih dahulu!',
+          ),
+          backgroundColor: Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     // Validasi saldo jika pakai TKAPay
     if (_selectedMethod == 'TKAPay' && _userBalance < _totalAmount) {
       ScaffoldMessenger.of(context).showSnackBar(

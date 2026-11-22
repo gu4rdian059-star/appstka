@@ -19,6 +19,7 @@ class SessionService {
   static const String _keyUserBalancePrefix = 'tka_user_balance_';
   static const String _keyUserPointsPrefix = 'tka_user_points_';
   static const String _keyUserTierPrefix = 'tka_user_tier_';
+  static const String _keyUserAvatarPrefix = 'tka_user_avatar_';
 
   /// Simpan pengaturan "Ingat Saya" dan kredensial identifier
   static Future<void> setRememberMe({
@@ -164,7 +165,11 @@ class SessionService {
           }
         }
       } catch (e) {
-        debugPrint('Catatan sinkronisasi saldo dari Supabase: $e');
+        // Jika kolom balance belum ada di tabel profiles Supabase, fallback hening ke storage lokal
+        final errStr = e.toString();
+        if (!errStr.contains('42703') && !errStr.contains('balance does not exist')) {
+          debugPrint('Catatan sinkronisasi saldo dari Supabase: $e');
+        }
       }
     }
 
@@ -193,7 +198,10 @@ class SessionService {
           '✅ [Supabase Balance] Saldo Rp$amount berhasil diperbarui di Supabase untuk $email',
         );
       } catch (e) {
-        debugPrint('Catatan update saldo di Supabase: $e');
+        final errStr = e.toString();
+        if (!errStr.contains('42703') && !errStr.contains('balance does not exist')) {
+          debugPrint('Catatan update saldo di Supabase: $e');
+        }
       }
     }
   }
@@ -234,6 +242,60 @@ class SessionService {
     }
     return prefs.getString(key) ??
         (isDemoSamuel ? 'Member Gold' : 'Member Baru');
+  }
+
+  /// Ambil URL avatar profil user yang aktif (dari cache lokal atau tabel profiles di Supabase)
+  static Future<String?> getUserAvatar() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = (await getUserEmail())?.toLowerCase().trim() ?? '';
+    if (email.isEmpty) return null;
+
+    final localAvatar = prefs.getString('$_keyUserAvatarPrefix$email');
+    if (localAvatar != null && localAvatar.isNotEmpty) {
+      return localAvatar;
+    }
+
+    // Periksa ke tabel profiles di Supabase jika belum ada di lokal
+    try {
+      final client = SupabaseService.client;
+      final res = await client
+          .from('profiles')
+          .select('avatar_url')
+          .eq('email', email)
+          .maybeSingle();
+      if (res != null && res['avatar_url'] != null) {
+        final url = res['avatar_url'].toString();
+        if (url.isNotEmpty) {
+          await prefs.setString('$_keyUserAvatarPrefix$email', url);
+          return url;
+        }
+      }
+    } catch (e) {
+      debugPrint('Catatan ambil avatar dari Supabase: $e');
+    }
+
+    return null;
+  }
+
+  /// Simpan URL avatar user aktif ke lokal dan sinkronkan ke tabel profiles di Supabase
+  static Future<void> setUserAvatar(String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = (await getUserEmail())?.toLowerCase().trim() ?? '';
+    if (email.isNotEmpty) {
+      await prefs.setString('$_keyUserAvatarPrefix$email', url);
+      try {
+        final client = SupabaseService.client;
+        await client
+            .from('profiles')
+            .update({'avatar_url': url})
+            .eq('email', email);
+        debugPrint(
+          '✅ [Supabase Avatar] Avatar URL berhasil diperbarui di Supabase untuk $email: $url',
+        );
+      } catch (e) {
+        debugPrint('Catatan update avatar di Supabase: $e');
+      }
+    }
   }
 
   /// Simpan kredensial akun terdaftar untuk fallback login instan

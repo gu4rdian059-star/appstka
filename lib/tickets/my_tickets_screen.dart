@@ -5,6 +5,7 @@ import '../orders/refund_screen.dart';
 import '../orders/order_detail_screen.dart';
 import '../intercity/antar_kota_screen.dart';
 import '../services/user_db_service.dart';
+import '../services/supabase_storage_service.dart';
 
 class MyTicketsScreen extends StatefulWidget {
   final bool embedded;
@@ -890,37 +891,69 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                           child: Column(
                             children: [
                               Container(
-                                width: 140,
-                                height: 140,
+                                width: 150,
+                                height: 150,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: Colors.grey.shade300,
                                   ),
-                                ),
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.qr_code_2_rounded,
-                                      size: 132,
-                                      color: const Color(0xFF062056),
-                                    ),
-                                    Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.train_rounded,
-                                        size: 15,
-                                        color: Color(0xFFF26716),
-                                      ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.04),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
                                     ),
                                   ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.network(
+                                    ticket.qrCodeUrl ??
+                                        SupabaseStorageService.getTicketQrUrl(
+                                          ticket.bookingId,
+                                        ),
+                                    width: 150,
+                                    height: 150,
+                                    fit: BoxFit.contain,
+                                    loadingBuilder: (ctx, child, progress) {
+                                      if (progress == null) return child;
+                                      return const Center(
+                                        child: SizedBox(
+                                          width: 28,
+                                          height: 28,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Color(0xFF062056),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    errorBuilder: (_, _, _) => Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.qr_code_2_rounded,
+                                          size: 132,
+                                          color: Color(0xFF062056),
+                                        ),
+                                        Container(
+                                          width: 24,
+                                          height: 24,
+                                          decoration: const BoxDecoration(
+                                            color: Colors.white,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.train_rounded,
+                                            size: 15,
+                                            color: Color(0xFFF26716),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 10),
@@ -932,13 +965,51 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                                   color: Color(0xFF062056),
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                'Dapat dipindai tanpa koneksi internet (Offline Ready)',
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  color: Colors.grey,
-                                ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: const Color(0xFFBFDBFE),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(
+                                          Icons.cloud_done_rounded,
+                                          size: 11,
+                                          color: Color(0xFF1D4ED8),
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Supabase tickets-qr',
+                                          style: TextStyle(
+                                            fontSize: 9.5,
+                                            color: Color(0xFF1D4ED8),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '• Offline Ready',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

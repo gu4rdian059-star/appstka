@@ -25,6 +25,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _points = 0;
   String _tier = 'Member Baru';
   int _completedTrips = 0;
+  String? _avatarUrl;
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final savedPhone = await SessionService.getUserPhone();
     final points = await SessionService.getUserPoints();
     final tier = await SessionService.getUserTier();
+    final avatar = await SessionService.getUserAvatar();
     final completed = await UserDatabaseService.getBookings(
       statusFilter: 'Selesai',
     );
@@ -55,6 +57,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
         _points = points;
         _tier = tier;
+        _avatarUrl = avatar;
         _completedTrips = completed.length;
       });
     }
@@ -70,9 +73,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
-    if (updated != null && updated.isNotEmpty && mounted) {
-      setState(() => _name = updated);
-      await SessionService.saveUserSession(name: _name, emailOrPhone: _email);
+    if (mounted) {
+      if (updated != null && updated.isNotEmpty) {
+        setState(() => _name = updated);
+        await SessionService.saveUserSession(name: _name, emailOrPhone: _email);
+      }
+      await _loadUserSession();
     }
   }
 
@@ -211,18 +217,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: const Color(0xFF062056),
-                    child: Text(
-                      _name.isNotEmpty
-                          ? _name.split(' ').map((w) => w[0]).take(2).join()
-                          : 'SM',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF062056),
+                        width: 2,
                       ),
+                    ),
+                    child: ClipOval(
+                      child: _avatarUrl != null && _avatarUrl!.isNotEmpty
+                          ? Image.network(
+                              _avatarUrl!,
+                              width: 56,
+                              height: 56,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => CircleAvatar(
+                                backgroundColor: const Color(0xFF062056),
+                                child: Text(
+                                  _name.isNotEmpty
+                                      ? _name
+                                          .split(' ')
+                                          .where((e) => e.isNotEmpty)
+                                          .map((w) => w[0].toUpperCase())
+                                          .take(2)
+                                          .join()
+                                      : 'SM',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : CircleAvatar(
+                              backgroundColor: const Color(0xFF062056),
+                              child: Text(
+                                _name.isNotEmpty
+                                    ? _name
+                                        .split(' ')
+                                        .where((e) => e.isNotEmpty)
+                                        .map((w) => w[0].toUpperCase())
+                                        .take(2)
+                                        .join()
+                                    : 'SM',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(width: 14),

@@ -44,7 +44,7 @@ class PaymentMethodScreen extends StatefulWidget {
 }
 
 class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
-  String _selectedMethod = 'BCA Virtual Account'; // Default
+  String _selectedMethod = ''; // Awalnya kosong agar tidak otomatis tercentang
   int _userBalance = 0;
   bool _isProcessing = false;
 
@@ -98,6 +98,19 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
 
   void _processPayment() async {
     if (_isProcessing) return;
+
+    if (_selectedMethod.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Silakan pilih salah satu metode pembayaran terlebih dahulu!',
+          ),
+          backgroundColor: Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     // Jika metode QRIS dipilih, arahkan ke layar QRIS khusus sesuai permintaan pengguna
     if (_selectedMethod == 'QRIS') {

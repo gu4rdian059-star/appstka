@@ -20,19 +20,8 @@ class AntarKotaScreen extends StatefulWidget {
 }
 
 class _AntarKotaScreenState extends State<AntarKotaScreen> {
-  StationModel _originStation = const StationModel(
-    code: 'GMR',
-    name: 'Gambir',
-    city: 'Jakarta Pusat',
-    region: 'Jabodetabek',
-  );
-
-  StationModel _destStation = const StationModel(
-    code: 'SBI',
-    name: 'Surabaya Pasarturi',
-    city: 'Surabaya',
-    region: 'Jawa Timur',
-  );
+  StationModel? _originStation;
+  StationModel? _destStation;
 
   late DateTime _departureDate;
   DateTime? _returnDate;
@@ -56,27 +45,30 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
     await UserDatabaseService.initialize();
     final allStations = await UserDatabaseService.getStations();
 
-    // Inisialisasi asal & tujuan dari props jika ada
+    // Inisialisasi asal dari props jika ada
     if (widget.initialOrigin != null) {
-      final found = allStations.firstWhere(
+      final found = allStations.where(
         (s) =>
             widget.initialOrigin!.contains(s.code) ||
             widget.initialOrigin!.toLowerCase().contains(s.name.toLowerCase()),
-        orElse: () => _originStation,
-      );
-      _originStation = found;
+      ).firstOrNull;
+      if (found != null) {
+        _originStation = found;
+      }
     }
 
+    // Hanya isi tujuan jika diberikan secara eksplisit melalui props
     if (widget.initialDestination != null) {
-      final found = allStations.firstWhere(
+      final found = allStations.where(
         (s) =>
             widget.initialDestination!.contains(s.code) ||
             widget.initialDestination!.toLowerCase().contains(
               s.name.toLowerCase(),
             ),
-        orElse: () => _destStation,
-      );
-      _destStation = found;
+      ).firstOrNull;
+      if (found != null) {
+        _destStation = found;
+      }
     }
 
     final recents = await UserDatabaseService.getRecentSearches();
@@ -89,6 +81,10 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
   }
 
   void _swapStations() {
+    if (_originStation == null || _destStation == null) {
+      _showWarning('Silakan pilih stasiun keberangkatan dan tujuan terlebih dahulu sebelum menukar stasiun!');
+      return;
+    }
     setState(() {
       final temp = _originStation;
       _originStation = _destStation;
@@ -130,18 +126,18 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
             ? 'Pilih Stasiun Keberangkatan'
             : 'Pilih Stasiun Tujuan',
         forbiddenStationCode: isOrigin
-            ? _destStation.code
-            : _originStation.code,
+            ? (_destStation?.code ?? '')
+            : (_originStation?.code ?? ''),
       ),
     );
 
     if (pickedStation != null && mounted) {
       // Validasi: Stasiun asal dan tujuan tidak boleh sama
-      if (isOrigin && pickedStation.code == _destStation.code) {
+      if (isOrigin && _destStation != null && pickedStation.code == _destStation!.code) {
         _showWarning('Stasiun asal dan tujuan tidak boleh sama!');
         return;
       }
-      if (!isOrigin && pickedStation.code == _originStation.code) {
+      if (!isOrigin && _originStation != null && pickedStation.code == _originStation!.code) {
         _showWarning('Stasiun tujuan dan asal tidak boleh sama!');
         return;
       }
@@ -289,7 +285,17 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
   // ===========================================================================
   void _handleSearch() async {
     // Validasi Dasar
-    if (_originStation.code == _destStation.code) {
+    if (_originStation == null) {
+      _showWarning('Silakan pilih stasiun keberangkatan terlebih dahulu!');
+      return;
+    }
+
+    if (_destStation == null) {
+      _showWarning('Silakan pilih stasiun tujuan terlebih dahulu!');
+      return;
+    }
+
+    if (_originStation!.code == _destStation!.code) {
       _showWarning('Stasiun asal dan tujuan tidak boleh sama!');
       return;
     }
@@ -304,10 +310,10 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
     // 1. Simpan ke riwayat pencarian
     final searchRecord = RecentSearchModel(
       id: 'srch-${DateTime.now().millisecondsSinceEpoch}',
-      originCode: _originStation.code,
-      originName: _originStation.displayName,
-      destCode: _destStation.code,
-      destName: _destStation.displayName,
+      originCode: _originStation!.code,
+      originName: _originStation!.displayName,
+      destCode: _destStation!.code,
+      destName: _destStation!.displayName,
       travelDate: '${_departureDate.day} Nov 2026',
       passengers:
           '$_adultCount Dewasa${_infantCount > 0 ? ', $_infantCount Bayi' : ', 0 Bayi'}',
@@ -327,8 +333,8 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
             TrainSearchResultsScreen(
-              origin: _originStation,
-              dest: _destStation,
+              origin: _originStation!,
+              dest: _destStation!,
               travelDate: _departureDate,
               adultCount: _adultCount,
               infantCount: _infantCount,
@@ -771,14 +777,19 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
                                                     const SizedBox(height: 2),
                                                     Text(
                                                       _originStation
-                                                          .displayName,
-                                                      style: const TextStyle(
+                                                              ?.displayName ??
+                                                          'Pilih Stasiun Keberangkatan',
+                                                      style: TextStyle(
                                                         fontSize: 14,
                                                         fontWeight:
                                                             FontWeight.w700,
-                                                        color: Color(
-                                                          0xFF062056,
-                                                        ),
+                                                        color: _originStation !=
+                                                                null
+                                                            ? const Color(
+                                                                0xFF062056,
+                                                              )
+                                                            : Colors
+                                                                .grey.shade400,
                                                       ),
                                                     ),
                                                   ],
@@ -840,14 +851,15 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
                                                     ),
                                                     const SizedBox(height: 2),
                                                     Text(
-                                                      _destStation.displayName,
-                                                      style: const TextStyle(
+                                                      _destStation?.displayName ??
+                                                          'Pilih Stasiun Tujuan',
+                                                      style: TextStyle(
                                                         fontSize: 14,
                                                         fontWeight:
                                                             FontWeight.w700,
-                                                        color: Color(
-                                                          0xFF062056,
-                                                        ),
+                                                        color: _destStation != null
+                                                            ? const Color(0xFF062056)
+                                                            : Colors.grey.shade400,
                                                       ),
                                                     ),
                                                   ],
@@ -1396,19 +1408,16 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
                                                 // Pre-fill stasiun dari kartu riwayat
                                                 final all =
                                                     await UserDatabaseService.getStations();
-                                                final o = all.firstWhere(
+                                                final o = all.where(
                                                   (s) =>
                                                       s.code == item.originCode,
-                                                  orElse: () => _originStation,
-                                                );
-                                                final d = all.firstWhere(
-                                                  (s) =>
-                                                      s.code == item.destCode,
-                                                  orElse: () => _destStation,
-                                                );
+                                                ).firstOrNull;
+                                                final d = all.where(
+                                                  (s) => s.code == item.destCode,
+                                                ).firstOrNull;
                                                 setState(() {
-                                                  _originStation = o;
-                                                  _destStation = d;
+                                                  if (o != null) _originStation = o;
+                                                  if (d != null) _destStation = d;
                                                 });
                                                 _handleSearch();
                                               },

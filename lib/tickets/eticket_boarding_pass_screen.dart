@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/user_db_service.dart';
+import '../services/supabase_storage_service.dart';
 import '../orders/refund_screen.dart';
 import '../tracking/live_tracking_screen.dart';
 
@@ -39,6 +40,12 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
   void initState() {
     super.initState();
     _startQrTimer();
+    SupabaseStorageService.ensureTicketQrUploaded(
+      bookingId: widget.booking.bookingId,
+      pnr: widget.booking.bookingId,
+      trainName: widget.booking.trainName,
+      seatNumber: widget.booking.seatNumber,
+    );
   }
 
   void _startQrTimer() {
@@ -87,6 +94,9 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
   }
 
   void _showEnlargedQr() {
+    final qrUrl = widget.booking.qrCodeUrl ??
+        SupabaseStorageService.getTicketQrUrl(widget.booking.bookingId);
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -103,9 +113,27 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            CustomPaint(
-              size: const Size(220, 220),
-              painter: _RealisticQrCodePainter(),
+            Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  qrUrl,
+                  width: 220,
+                  height: 220,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => CustomPaint(
+                    size: const Size(220, 220),
+                    painter: _RealisticQrCodePainter(),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             Text(
@@ -1347,6 +1375,9 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
   }
 
   Widget _buildQrCodeCard() {
+    final qrUrl = widget.booking.qrCodeUrl ??
+        SupabaseStorageService.getTicketQrUrl(widget.booking.bookingId);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1356,11 +1387,42 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
       ),
       child: Column(
         children: [
-          // QR Barcode Realistis dengan Logo TKA di Tengah
+          // QR Barcode Realistis dari Supabase Storage (tickets-qr)
           Center(
-            child: CustomPaint(
-              size: const Size(180, 180),
-              painter: _RealisticQrCodePainter(),
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  qrUrl,
+                  width: 180,
+                  height: 180,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (ctx, child, progress) {
+                    if (progress == null) return child;
+                    return const Center(
+                      child: SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Color(0xFF062056),
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, _, _) => CustomPaint(
+                    size: const Size(180, 180),
+                    painter: _RealisticQrCodePainter(),
+                  ),
+                ),
+              ),
             ),
           ),
 
@@ -1397,9 +1459,42 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
 
           const SizedBox(height: 4),
 
-          Text(
-            'Anti-Screenshot Security • Terenkripsi TKA Token Level 3',
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(
+                      Icons.cloud_done_rounded,
+                      size: 11,
+                      color: Color(0xFF1D4ED8),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Supabase Storage (tickets-qr)',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: Color(0xFF1D4ED8),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '• Enkripsi Level 3',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+              ),
+            ],
           ),
 
           const SizedBox(height: 14),
