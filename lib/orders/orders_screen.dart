@@ -93,32 +93,36 @@ class _OrdersScreenState extends State<OrdersScreen> {
       return true;
     }).toList();
 
-    // Konsolidasi tiket rombongan / multi-penumpang agar tampil sebagai 1 pesanan
+    // Konsolidasi tiket rombongan / multi-penumpang hanya jika satu kode booking (misal TKA-12345 dan TKA-12345-2)
     final List<BookingModel> result = [];
     final Set<String> processed = {};
 
     for (final b in raw) {
       if (processed.contains(b.bookingId)) continue;
 
+      // 1. Jika pesanan sudah memiliki manifes lengkap, langsung gunakan dan JANGAN digabung dengan pesanan lain!
+      if (b.passengers != null && b.passengers!.isNotEmpty) {
+        processed.add(b.bookingId);
+        result.add(b);
+        continue;
+      }
+
+      // 2. Hanya konsolidasi jika berbagi base ID booking yang SAMA PERSIS (misal TKA-12345 dan TKA-12345-2)
+      final baseId = _getBaseBookingId(b.bookingId);
       final siblings = raw.where((other) {
-        if (other.bookingId == b.bookingId) return true;
-        final sameTrain =
-            other.trainName.toLowerCase().trim() ==
-            b.trainName.toLowerCase().trim();
-        final sameDate = other.travelDate.trim() == b.travelDate.trim();
-        final sameTime = other.departureTime.trim() == b.departureTime.trim();
-        final closeCreated =
-            other.createdAt.difference(b.createdAt).abs().inMinutes <= 5;
-        return sameTrain && sameDate && sameTime && closeCreated;
+        if (processed.contains(other.bookingId)) return false;
+        final otherBase = _getBaseBookingId(other.bookingId);
+        return otherBase == baseId && baseId.isNotEmpty && other.bookingId != b.bookingId;
       }).toList();
 
-      if (siblings.length > 1) {
-        siblings.sort((x, y) => x.createdAt.compareTo(y.createdAt));
-        for (final s in siblings) {
+      if (siblings.isNotEmpty) {
+        final allSiblings = [b, ...siblings];
+        allSiblings.sort((x, y) => x.createdAt.compareTo(y.createdAt));
+        for (final s in allSiblings) {
           processed.add(s.bookingId);
         }
 
-        final manifest = siblings
+        final manifest = allSiblings
             .map(
               (s) => {
                 'name': s.passengerName,
@@ -129,17 +133,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
             )
             .toList();
 
-        final first = siblings.first;
-        final totalAmount = siblings.fold<int>(
+        final first = allSiblings.first;
+        final totalAmount = allSiblings.fold<int>(
           0,
           (prev, elem) => prev + elem.totalAmount,
         );
-        final allSeats = siblings.map((s) => s.seatNumber).join(', ');
+        final allSeats = allSiblings.map((s) => s.seatNumber).join(', ');
 
         result.add(
           BookingModel(
             bookingId: first.bookingId,
-            passengerName: siblings.map((s) => s.passengerName).join(', '),
+            passengerName: allSiblings.map((s) => s.passengerName).join(', '),
             passengerEmail: first.passengerEmail,
             passengerPhone: first.passengerPhone,
             passengerNik: first.passengerNik,
@@ -172,6 +176,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
 
     return result;
+  }
+
+  static String _getBaseBookingId(String bookingId) {
+    final match = RegExp(r'^(TKA-[A-Za-z0-9]+)-\d+$').firstMatch(bookingId);
+    if (match != null) {
+      return match.group(1)!;
+    }
+    return bookingId;
   }
 
   String _formatCurrency(int amount) {

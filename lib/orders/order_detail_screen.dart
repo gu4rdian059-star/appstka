@@ -78,6 +78,14 @@ class OrderDetailScreen extends StatelessWidget {
     );
   }
 
+  static String _getBaseBookingId(String bookingId) {
+    final match = RegExp(r'^(TKA-[A-Za-z0-9]+)-\d+$').firstMatch(bookingId);
+    if (match != null) {
+      return match.group(1)!;
+    }
+    return bookingId;
+  }
+
   /// Otomatis melacak seluruh data manifest penumpang
   List<Map<String, String>> _resolveManifest() {
     if (passengers != null && passengers!.isNotEmpty) {
@@ -86,21 +94,22 @@ class OrderDetailScreen extends StatelessWidget {
 
     try {
       final all = UserDatabaseService.getCachedBookings();
+      // 1. Cek apakah booking ini di cache sudah punya manifes penumpang
+      final direct = all.where((b) => b.bookingId == bookingCode).toList();
+      if (direct.isNotEmpty &&
+          direct.first.passengers != null &&
+          direct.first.passengers!.isNotEmpty) {
+        return direct.first.passengers!;
+      }
+
+      // 2. Hanya konsolidasi jika berbagi base booking code yang SAMA PERSIS (misal TKA-123456 dan TKA-123456-2)
+      final baseId = _getBaseBookingId(bookingCode);
       final siblings = all.where((b) {
-        if (b.bookingId == bookingCode) return true;
-        if (bookingCode.contains('-') &&
-            b.bookingId.startsWith(bookingCode.split('-')[0])) {
-          return true;
-        }
-        final sameTrain =
-            b.trainName.toLowerCase().trim() == trainName.toLowerCase().trim();
-        final sameDate = b.travelDate.trim() == travelDate.trim();
-        final sameTime = b.departureTime.trim() == departureTime.trim();
-        return sameTrain && sameDate && sameTime;
+        final otherBase = _getBaseBookingId(b.bookingId);
+        return otherBase == baseId && baseId.isNotEmpty;
       }).toList();
 
       if (siblings.length > 1) {
-        // Urutkan Penumpang 1 lebih dahulu dari Penumpang 2
         siblings.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         return siblings.map((s) => {
           'name': s.passengerName,
@@ -125,13 +134,10 @@ class OrderDetailScreen extends StatelessWidget {
     if (manifest.length <= 1) return totalAmount;
     try {
       final all = UserDatabaseService.getCachedBookings();
+      final baseId = _getBaseBookingId(bookingCode);
       final siblings = all.where((b) {
-        if (b.bookingId == bookingCode) return true;
-        final sameTrain =
-            b.trainName.toLowerCase().trim() == trainName.toLowerCase().trim();
-        final sameDate = b.travelDate.trim() == travelDate.trim();
-        final sameTime = b.departureTime.trim() == departureTime.trim();
-        return sameTrain && sameDate && sameTime;
+        final otherBase = _getBaseBookingId(b.bookingId);
+        return otherBase == baseId && baseId.isNotEmpty;
       }).toList();
       if (siblings.length > 1) {
         final sum =
@@ -139,9 +145,6 @@ class OrderDetailScreen extends StatelessWidget {
         if (sum > totalAmount) return sum;
       }
     } catch (_) {}
-    if (totalAmount < 300000 && manifest.length > 1) {
-      return totalAmount * manifest.length;
-    }
     return totalAmount;
   }
 
