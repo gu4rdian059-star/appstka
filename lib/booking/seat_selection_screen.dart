@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../services/user_db_service.dart';
+import '../transitions/page_transitions.dart';
 import 'order_confirmation_screen.dart';
 
 class SeatSelectionScreen extends StatefulWidget {
@@ -17,6 +18,8 @@ class SeatSelectionScreen extends StatefulWidget {
   final String passengerNik;
   final List<Map<String, String>>? passengers;
   final int totalAmount;
+  final TrainScheduleModel? returnTrain;
+  final DateTime? returnDate;
 
   const SeatSelectionScreen({
     super.key,
@@ -31,6 +34,8 @@ class SeatSelectionScreen extends StatefulWidget {
     required this.passengerNik,
     this.passengers,
     required this.totalAmount,
+    this.returnTrain,
+    this.returnDate,
   });
 
   @override
@@ -319,39 +324,27 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
 
     final allSeatsStr = confirmedPassengers.map((p) => p['seat']).join(', ');
 
-    // Lanjut ke Gambar 4: Konfirmasi Pemesanan
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            OrderConfirmationScreen(
-              train: widget.train,
-              origin: widget.origin,
-              dest: widget.dest,
-              travelDate: widget.travelDate,
-              bookerName: widget.bookerName,
-              bookerEmail: widget.bookerEmail,
-              bookerPhone: widget.bookerPhone,
-              passengerName:
-                  confirmedPassengers[0]['name'] ?? widget.passengerName,
-              passengerNik: confirmedPassengers[0]['id'] ?? widget.passengerNik,
-              passengers: confirmedPassengers,
-              selectedSeat: allSeatsStr,
-              seatSide:
-                  confirmedPassengers[0]['seatSide'] ?? _seatSideDescription,
-              totalAmount: widget.totalAmount,
-            ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-                .animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutCubic,
-                  ),
-                ),
-            child: child,
-          );
-        },
+    // Lanjut ke Konfirmasi Pemesanan dengan animasi mulus
+    AppPageRoute.push(
+      context,
+      OrderConfirmationScreen(
+        train: widget.train,
+        origin: widget.origin,
+        dest: widget.dest,
+        travelDate: widget.travelDate,
+        bookerName: widget.bookerName,
+        bookerEmail: widget.bookerEmail,
+        bookerPhone: widget.bookerPhone,
+        passengerName:
+            confirmedPassengers[0]['name'] ?? widget.passengerName,
+        passengerNik: confirmedPassengers[0]['id'] ?? widget.passengerNik,
+        passengers: confirmedPassengers,
+        selectedSeat: allSeatsStr,
+        seatSide:
+            confirmedPassengers[0]['seatSide'] ?? _seatSideDescription,
+        totalAmount: widget.totalAmount,
+        returnTrain: widget.returnTrain,
+        returnDate: widget.returnDate,
       ),
     );
   }

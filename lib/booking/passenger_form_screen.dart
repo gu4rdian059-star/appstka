@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/session_service.dart';
 import '../services/user_db_service.dart';
+import '../transitions/page_transitions.dart';
 import 'seat_selection_screen.dart';
 
 class PassengerFormScreen extends StatefulWidget {
@@ -13,6 +14,8 @@ class PassengerFormScreen extends StatefulWidget {
   final DateTime travelDate;
   final int adultCount;
   final int infantCount;
+  final TrainScheduleModel? returnTrain;
+  final DateTime? returnDate;
 
   const PassengerFormScreen({
     super.key,
@@ -22,6 +25,8 @@ class PassengerFormScreen extends StatefulWidget {
     required this.travelDate,
     this.adultCount = 1,
     this.infantCount = 0,
+    this.returnTrain,
+    this.returnDate,
   });
 
   @override
@@ -143,12 +148,14 @@ class _PassengerFormScreenState extends State<PassengerFormScreen> {
   int get _totalAmount {
     // Bayi gratis (Rp0), hanya dewasa yang membayar
     int payable = 0;
+    final singlePersonFare =
+        widget.train.baseFare + (widget.returnTrain?.baseFare ?? 0);
     for (final p in _passengers) {
       if (p.category == 'Dewasa') {
-        payable += widget.train.baseFare;
+        payable += singlePersonFare;
       }
     }
-    return payable > 0 ? payable : widget.train.baseFare;
+    return payable > 0 ? payable : singlePersonFare;
   }
 
   void _validateAndProceed() {
@@ -204,35 +211,23 @@ class _PassengerFormScreenState extends State<PassengerFormScreen> {
         )
         .toList();
 
-    // Lanjut ke Gambar 3: Pilih Kursi
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            SeatSelectionScreen(
-              train: widget.train,
-              origin: widget.origin,
-              dest: widget.dest,
-              travelDate: widget.travelDate,
-              bookerName: bookerName,
-              bookerEmail: bookerEmail,
-              bookerPhone: bookerPhone,
-              passengerName: _passengers[0].nameController.text.trim(),
-              passengerNik: _passengers[0].idController.text.trim(),
-              passengers: passengersList,
-              totalAmount: _totalAmount,
-            ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-                .animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutCubic,
-                  ),
-                ),
-            child: child,
-          );
-        },
+    // Lanjut ke Pilih Kursi dengan animasi mulus
+    AppPageRoute.push(
+      context,
+      SeatSelectionScreen(
+        train: widget.train,
+        origin: widget.origin,
+        dest: widget.dest,
+        travelDate: widget.travelDate,
+        bookerName: bookerName,
+        bookerEmail: bookerEmail,
+        bookerPhone: bookerPhone,
+        passengerName: _passengers[0].nameController.text.trim(),
+        passengerNik: _passengers[0].idController.text.trim(),
+        passengers: passengersList,
+        totalAmount: _totalAmount,
+        returnTrain: widget.returnTrain,
+        returnDate: widget.returnDate,
       ),
     );
   }
@@ -530,6 +525,158 @@ class _PassengerFormScreenState extends State<PassengerFormScreen> {
               ),
             ],
           ),
+
+          // Jika Pulang-Pergi: Tampilkan Rincian Kereta Pulang
+          if (widget.returnTrain != null) ...[
+            const SizedBox(height: 14),
+            const Divider(),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.sync_alt_rounded,
+                      color: Color(0xFFEA580C),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      widget.returnTrain!.name,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7ED),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'PULANG',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFEA580C),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  widget.returnDate != null
+                      ? _formatDate(widget.returnDate!)
+                      : _formatDate(widget.travelDate),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Padding(
+              padding: const EdgeInsets.only(left: 26),
+              child: Text(
+                '${widget.returnTrain!.availableClasses.first} • Gerbong 1',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.returnTrain!.departureTime,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    Text(
+                      '${widget.dest.name} (${widget.dest.code})',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  children: [
+                    Text(
+                      '${widget.returnTrain!.duration} Langsung',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    SizedBox(
+                      width: 70,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade400,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              color: Colors.grey.shade300,
+                              thickness: 1,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 12,
+                            color: Colors.grey,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      widget.returnTrain!.arrivalTime,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    Text(
+                      '${widget.origin.name} (${widget.origin.code})',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

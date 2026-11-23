@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/session_service.dart';
 import '../services/user_db_service.dart';
+import '../transitions/page_transitions.dart';
 import '../intercity/antar_kota_screen.dart';
 import '../orders/orders_screen.dart';
 import '../orders/order_detail_screen.dart';
@@ -895,13 +896,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFF062056),
                 iconColor: Colors.white,
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => AntarKotaScreen(
-                        initialOrigin: _originStation,
-                        initialDestination: _destStation,
-                        initialDate: _departureDate,
-                      ),
+                  AppPageRoute.pushMenu(
+                    context,
+                    AntarKotaScreen(
+                      initialOrigin: _originStation,
+                      initialDestination: _destStation,
+                      initialDate: _departureDate,
+                      initialRoundTrip:
+                          _selectedTripType == 1 || _returnTripChecked,
+                      initialReturnDate: _returnDate,
                     ),
                   );
                 },
@@ -912,9 +915,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFFF26716),
                 iconColor: Colors.white,
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const LokalScreen()),
-                  );
+                  AppPageRoute.pushMenu(context, const LokalScreen());
                 },
               ),
               _buildServiceItem(
@@ -923,9 +924,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFFEB4D4B),
                 iconColor: Colors.white,
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const KomuterScreen()),
-                  );
+                  AppPageRoute.pushMenu(context, const KomuterScreen());
                 },
               ),
               _buildServiceItem(
@@ -934,9 +933,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFF686DE0),
                 iconColor: Colors.white,
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const LrtMrtScreen()),
-                  );
+                  AppPageRoute.pushMenu(context, const LrtMrtScreen());
                 },
               ),
               _buildServiceItem(
@@ -945,9 +942,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFF22A6B3),
                 iconColor: Colors.white,
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const BandaraScreen()),
-                  );
+                  AppPageRoute.pushMenu(context, const BandaraScreen());
                 },
               ),
             ],
@@ -965,10 +960,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFFE8F1FC),
                 iconColor: const Color(0xFF1976D2),
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const LiveTrackingScreen(),
-                    ),
+                  AppPageRoute.pushMenu(
+                    context,
+                    const LiveTrackingScreen(),
                   );
                 },
               ),
@@ -978,9 +972,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFFFFF3E0),
                 iconColor: const Color(0xFFE65100),
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const KatalogKaScreen()),
-                  );
+                  AppPageRoute.pushMenu(context, const KatalogKaScreen());
                 },
               ),
               _buildServiceItem(
@@ -989,10 +981,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFFE8F5E9),
                 iconColor: const Color(0xFF2E7D32),
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const CustomerServiceScreen(),
-                    ),
+                  AppPageRoute.pushMenu(
+                    context,
+                    const CustomerServiceScreen(),
                   );
                 },
               ),
@@ -1002,9 +993,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFFECEFF1),
                 iconColor: const Color(0xFF546E7A),
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const LainnyaScreen()),
-                  );
+                  AppPageRoute.pushMenu(context, const LainnyaScreen());
                 },
               ),
             ],
@@ -1094,7 +1083,13 @@ class _DashboardScreenState extends State<DashboardScreen>
               children: [
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => setState(() => _selectedTripType = 0),
+                    onTap: () {
+                      setState(() {
+                        _selectedTripType = 0;
+                        _returnTripChecked = false;
+                        _returnDate = null;
+                      });
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 9),
                       decoration: BoxDecoration(
@@ -1112,23 +1107,42 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ]
                             : null,
                       ),
-                      child: Text(
-                        'Sekali Jalan',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: _selectedTripType == 0
-                              ? const Color(0xFF062056)
-                              : Colors.grey.shade600,
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 14,
+                            color: _selectedTripType == 0
+                                ? const Color(0xFF062056)
+                                : Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Sekali Jalan',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: _selectedTripType == 0
+                                  ? const Color(0xFF062056)
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => setState(() => _selectedTripType = 1),
+                    onTap: () {
+                      setState(() {
+                        _selectedTripType = 1;
+                        _returnTripChecked = true;
+                        _returnDate ??= _departureDate.add(const Duration(days: 2));
+                      });
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 9),
                       decoration: BoxDecoration(
@@ -1146,16 +1160,29 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ]
                             : null,
                       ),
-                      child: Text(
-                        'Pulang Pergi',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: _selectedTripType == 1
-                              ? const Color(0xFF062056)
-                              : Colors.grey.shade600,
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.sync_alt_rounded,
+                            size: 14,
+                            color: _selectedTripType == 1
+                                ? const Color(0xFFF26716)
+                                : Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Pulang Pergi',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: _selectedTripType == 1
+                                  ? const Color(0xFF062056)
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1181,6 +1208,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                             initialOrigin: _originStation,
                             initialDestination: _destStation,
                             initialDate: _departureDate,
+                            initialRoundTrip:
+                                _selectedTripType == 1 || _returnTripChecked,
+                            initialReturnDate: _returnDate,
                           ),
                         ),
                       );
@@ -1195,14 +1225,43 @@ class _DashboardScreenState extends State<DashboardScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'STASIUN ASAL',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade500,
-                              letterSpacing: 0.5,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'STASIUN ASAL',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade500,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _selectedTripType == 1
+                                      ? const Color(0xFFFFF7ED)
+                                      : const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  _selectedTripType == 1
+                                      ? 'Pulang-Pergi (2 Tiket)'
+                                      : 'Sekali Jalan (1 Tiket)',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: _selectedTripType == 1
+                                        ? const Color(0xFFEA580C)
+                                        : const Color(0xFF2563EB),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Row(
@@ -1243,6 +1302,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                             initialOrigin: _originStation,
                             initialDestination: _destStation,
                             initialDate: _departureDate,
+                            initialRoundTrip:
+                                _selectedTripType == 1 || _returnTripChecked,
+                            initialReturnDate: _returnDate,
                           ),
                         ),
                       );
@@ -1392,12 +1454,21 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
               const SizedBox(width: 10),
 
-              // Pulang (Opsional)
+              // Tanggal Pulang / Tambah PP
               Expanded(
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () => _pickDashboardDate(true),
+                    onTap: () {
+                      if (!_returnTripChecked) {
+                        setState(() {
+                          _selectedTripType = 1;
+                          _returnTripChecked = true;
+                          _returnDate ??= _departureDate.add(const Duration(days: 2));
+                        });
+                      }
+                      _pickDashboardDate(true);
+                    },
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
                       padding: const EdgeInsets.all(12),
@@ -1409,6 +1480,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           color: _returnTripChecked
                               ? const Color(0xFFFDBA74)
                               : Colors.grey.shade200,
+                          width: _returnTripChecked ? 1.5 : 1,
                         ),
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -1419,11 +1491,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Pulang (Opsional)',
+                                _returnTripChecked
+                                    ? 'Tanggal Pulang'
+                                    : 'Pulang (Opsional)',
                                 style: TextStyle(
                                   fontSize: 10.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey.shade600,
+                                  fontWeight: _returnTripChecked
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  color: _returnTripChecked
+                                      ? const Color(0xFFC2410C)
+                                      : Colors.grey.shade600,
                                 ),
                               ),
                               SizedBox(
@@ -1436,10 +1514,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   onChanged: (v) {
+                                    final val = v ?? false;
                                     setState(() {
-                                      _returnTripChecked = v ?? false;
-                                      if (_returnTripChecked &&
-                                          _returnDate == null) {
+                                      _returnTripChecked = val;
+                                      _selectedTripType = val ? 1 : 0;
+                                      if (val && _returnDate == null) {
                                         _returnDate = _departureDate.add(
                                           const Duration(days: 2),
                                         );
@@ -1450,20 +1529,44 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 4),
                           Text(
                             _returnTripChecked && _returnDate != null
                                 ? _formatDashboardDate(_returnDate!)
-                                : 'Tambah PP',
+                                : 'Sekali Jalan (Tanpa PP)',
                             style: TextStyle(
                               fontSize: 12.5,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: _returnTripChecked
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
                               color: _returnTripChecked
-                                  ? const Color(0xFFC2410C)
-                                  : Colors.grey.shade500,
+                                  ? const Color(0xFF062056)
+                                  : Colors.grey.shade400,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _returnTripChecked
+                                  ? const Color(0xFFFFEDD5)
+                                  : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _returnTripChecked ? 'Pilih Kalender PP' : '+ Tambah PP',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: _returnTripChecked
+                                    ? const Color(0xFFC2410C)
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -1587,13 +1690,15 @@ class _DashboardScreenState extends State<DashboardScreen>
             height: 48,
             child: ElevatedButton(
               onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => AntarKotaScreen(
-                      initialOrigin: _originStation,
-                      initialDestination: _destStation,
-                      initialDate: _departureDate,
-                    ),
+                final isPP = _selectedTripType == 1 || _returnTripChecked;
+                AppPageRoute.pushMenu(
+                  context,
+                  AntarKotaScreen(
+                    initialOrigin: _originStation,
+                    initialDestination: _destStation,
+                    initialDate: _departureDate,
+                    initialRoundTrip: isPP,
+                    initialReturnDate: _returnDate,
                   ),
                 );
               },

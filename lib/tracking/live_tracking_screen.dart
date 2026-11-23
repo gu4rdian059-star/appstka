@@ -1834,10 +1834,13 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                                 fontSize: 10.5,
                                 color: Color(0xFFCBD5E1),
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -1867,21 +1870,32 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
 
               // 5. Daftar Stasiun Pemberhentian di Sepanjang Rute Tiket
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Daftar Stasiun Pemberhentian Rute',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF062056),
+                  const Expanded(
+                    child: Text(
+                      'Stasiun Pemberhentian',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF062056),
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Text(
-                    '${_stations.length} Stasiun • Ketuk untuk fokus peta',
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      color: Color(0xFF64748B),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${_stations.length} Stasiun',
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF475569),
+                      ),
                     ),
                   ),
                 ],

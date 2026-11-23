@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/user_db_service.dart';
+import '../transitions/page_transitions.dart';
 import '../payment/payment_method_screen.dart';
 
 class OrderConfirmationScreen extends StatefulWidget {
@@ -20,6 +21,8 @@ class OrderConfirmationScreen extends StatefulWidget {
   final String selectedSeat;
   final String seatSide;
   final int totalAmount;
+  final TrainScheduleModel? returnTrain;
+  final DateTime? returnDate;
 
   const OrderConfirmationScreen({
     super.key,
@@ -36,6 +39,8 @@ class OrderConfirmationScreen extends StatefulWidget {
     required this.selectedSeat,
     required this.seatSide,
     required this.totalAmount,
+    this.returnTrain,
+    this.returnDate,
   });
 
   @override
@@ -124,39 +129,27 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
       return;
     }
 
-    // Lanjut ke Gambar 4 Kolom 2: Metode Pembayaran
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            PaymentMethodScreen(
-              bookingCode: _tempBookingCode,
-              train: widget.train,
-              origin: widget.origin,
-              dest: widget.dest,
-              travelDate: widget.travelDate,
-              bookerName: widget.bookerName,
-              bookerEmail: widget.bookerEmail,
-              bookerPhone: widget.bookerPhone,
-              passengerName:
-                  _manifestPassengers[0]['name'] ?? widget.passengerName,
-              passengerNik: _manifestPassengers[0]['id'] ?? widget.passengerNik,
-              passengers: _manifestPassengers,
-              selectedSeat: widget.selectedSeat,
-              seatSide: widget.seatSide,
-              totalAmount: widget.totalAmount,
-            ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-                .animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutCubic,
-                  ),
-                ),
-            child: child,
-          );
-        },
+    // Lanjut ke Metode Pembayaran dengan animasi mulus
+    AppPageRoute.push(
+      context,
+      PaymentMethodScreen(
+        bookingCode: _tempBookingCode,
+        train: widget.train,
+        origin: widget.origin,
+        dest: widget.dest,
+        travelDate: widget.travelDate,
+        bookerName: widget.bookerName,
+        bookerEmail: widget.bookerEmail,
+        bookerPhone: widget.bookerPhone,
+        passengerName:
+            _manifestPassengers[0]['name'] ?? widget.passengerName,
+        passengerNik: _manifestPassengers[0]['id'] ?? widget.passengerNik,
+        passengers: _manifestPassengers,
+        selectedSeat: widget.selectedSeat,
+        seatSide: widget.seatSide,
+        totalAmount: widget.totalAmount,
+        returnTrain: widget.returnTrain,
+        returnDate: widget.returnDate,
       ),
     );
   }
@@ -278,6 +271,11 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 
                   // 2. Card Detail Jadwal Kereta & Jalur Peron
                   _buildTrainDetailCard(),
+
+                  if (widget.returnTrain != null) ...[
+                    const SizedBox(height: 14),
+                    _buildReturnTrainDetailCard(),
+                  ],
 
                   const SizedBox(height: 14),
 
@@ -630,6 +628,207 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     );
   }
 
+  Widget _buildReturnTrainDetailCard() {
+    if (widget.returnTrain == null) return const SizedBox.shrink();
+    final className = widget.returnTrain!.availableClasses.first;
+    final rDate = widget.returnDate ?? widget.travelDate;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFED7AA)),
+      ),
+      child: Column(
+        children: [
+          // Header Kereta Pulang (Warna Oranye)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFFEA580C),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(
+                    Icons.sync_alt_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${widget.returnTrain!.name} (${widget.returnTrain!.trainNumber})',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'TIKET PULANG',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '$className • Gerbong 1',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Waktu & Rute Pulang
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.returnTrain!.departureTime,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          '${widget.dest.name} (${widget.dest.code})',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                        Text(
+                          _formatDate(rDate),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      children: [
+                        Text(
+                          '${widget.returnTrain!.duration} Langsung',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        SizedBox(
+                          width: 80,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 5,
+                                height: 5,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEA580C),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              Expanded(
+                                child: Divider(
+                                  color: Colors.grey.shade300,
+                                  thickness: 1,
+                                ),
+                              ),
+                              const Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 14,
+                                color: Color(0xFFEA580C),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          widget.returnTrain!.arrivalTime,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          '${widget.origin.name} (${widget.origin.code})',
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                        Text(
+                          _formatDate(rDate),
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPassengerManifestCard() {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -802,23 +1001,65 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Tarif Tiket (${_manifestPassengers.length}x ${widget.train.availableClasses.first})',
-                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
-              ),
-              Text(
-                _formatCurrency(widget.totalAmount),
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF0F172A),
+          if (widget.returnTrain != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Tiket Pergi (${widget.train.name})',
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
                 ),
-              ),
-            ],
-          ),
+                Text(
+                  _formatCurrency(
+                    widget.train.baseFare * _manifestPassengers.length,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Tiket Pulang (${widget.returnTrain!.name})',
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                ),
+                Text(
+                  _formatCurrency(
+                    widget.returnTrain!.baseFare * _manifestPassengers.length,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Tarif Tiket (${_manifestPassengers.length}x ${widget.train.availableClasses.first})',
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                ),
+                Text(
+                  _formatCurrency(widget.totalAmount),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
