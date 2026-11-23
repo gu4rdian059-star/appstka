@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'config/app_env.dart';
+import 'dashboard/dashboard_screen.dart';
 import 'services/indonesia_time_service.dart';
 import 'services/supabase_service.dart';
 import 'splash_screen.dart';
@@ -30,6 +31,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final oauthUser = SupabaseService.initialOAuthUserName;
+
     return MaterialApp(
       title: 'TKA - Tiket Kereta Api',
       debugShowCheckedModeBanner: false,
@@ -43,7 +46,10 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.white,
         useMaterial3: true,
       ),
-      home: const SplashScreen(),
+      // Jika kembali dari callback Google OAuth (?code=...), langsung masuk ke Beranda (DashboardScreen)
+      home: oauthUser != null
+          ? DashboardScreen(userName: oauthUser)
+          : const SplashScreen(),
     );
   }
 }
