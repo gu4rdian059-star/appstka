@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../services/session_service.dart';
+import '../services/supabase_service.dart';
 import '../services/user_db_service.dart';
 import '../login/login_screen.dart';
 import 'edit_profile_screen.dart';
@@ -61,6 +63,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _completedTrips = completed.length;
       });
     }
+
+    // Ambil data sinkronisasi terbaru dari Supabase profiles jika tersedia
+    try {
+      final cleanEmail = (savedEmail ?? '').toLowerCase().trim();
+      if (cleanEmail.isNotEmpty) {
+        final client = SupabaseService.client;
+        final res = await client
+            .from('profiles')
+            .select()
+            .eq('email', cleanEmail)
+            .maybeSingle();
+
+        if (res != null && mounted) {
+          setState(() {
+            if (res['full_name'] != null &&
+                res['full_name'].toString().isNotEmpty) {
+              _name = res['full_name'].toString();
+            }
+            if (res['phone'] != null && res['phone'].toString().isNotEmpty) {
+              _phone = res['phone'].toString();
+            }
+            if (res['avatar_url'] != null &&
+                res['avatar_url'].toString().isNotEmpty) {
+              _avatarUrl = res['avatar_url'].toString();
+            }
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   void _openEditProfile() async {
@@ -76,7 +107,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) {
       if (updated != null && updated.isNotEmpty) {
         setState(() => _name = updated);
-        await SessionService.saveUserSession(name: _name, emailOrPhone: _email);
       }
       await _loadUserSession();
     }
@@ -229,30 +259,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: ClipOval(
                       child: _avatarUrl != null && _avatarUrl!.isNotEmpty
-                          ? Image.network(
-                              _avatarUrl!,
-                              width: 56,
-                              height: 56,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => CircleAvatar(
-                                backgroundColor: const Color(0xFF062056),
-                                child: Text(
-                                  _name.isNotEmpty
-                                      ? _name
-                                          .split(' ')
-                                          .where((e) => e.isNotEmpty)
-                                          .map((w) => w[0].toUpperCase())
-                                          .take(2)
-                                          .join()
-                                      : 'SM',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                          ? (_avatarUrl!.startsWith('data:image')
+                              ? Image.memory(
+                                  base64Decode(
+                                    _avatarUrl!.contains(',')
+                                        ? _avatarUrl!.split(',').last
+                                        : _avatarUrl!,
                                   ),
-                                ),
-                              ),
-                            )
+                                  width: 56,
+                                  height: 56,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.network(
+                                  _avatarUrl!,
+                                  width: 56,
+                                  height: 56,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => CircleAvatar(
+                                    backgroundColor: const Color(0xFF062056),
+                                    child: Text(
+                                      _name.isNotEmpty
+                                          ? _name
+                                              .split(' ')
+                                              .where((e) => e.isNotEmpty)
+                                              .map((w) => w[0].toUpperCase())
+                                              .take(2)
+                                              .join()
+                                          : 'TK',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ))
                           : CircleAvatar(
                               backgroundColor: const Color(0xFF062056),
                               child: Text(

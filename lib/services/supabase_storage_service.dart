@@ -8,6 +8,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
 import 'auth_service.dart';
 
+class AvatarUploadResult {
+  final bool success;
+  final String? url;
+  final String? error;
+  final bool isRlsError;
+
+  AvatarUploadResult({
+    required this.success,
+    this.url,
+    this.error,
+    this.isRlsError = false,
+  });
+}
+
 /// Layanan terpadu untuk integrasi Supabase Storage:
 /// 1. 'avatars'     -> Foto profil pengguna (Maks 2MB, JPG/PNG/WebP)
 /// 2. 'train-assets' -> Gambar & aset kereta api (Maks 5MB, JPG/PNG/WebP/SVG)
@@ -260,36 +274,111 @@ class SupabaseStorageService {
   // 2. AVATARS STORAGE (Bucket: avatars)
   // ===========================================================================
 
+  /// Unggah foto profil pengguna ke Supabase Storage secara mendalam dengan info error
+  static Future<AvatarUploadResult> uploadAvatarDetailed({
+    required String userIdOrEmail,
+    required Uint8List imageBytes,
+    String mimeType = 'image/jpeg',
+  }) async {
+    try {
+      final client = SupabaseService.client;
+      // Pastikan ada auth session terverifikasi sebelum upload jika memungkinkan
+      try {
+        final user = await AuthService.ensureSupabaseAuthSession();
+        if (user == null && client.auth.currentUser == null) {
+          try {
+            await client.auth.signInAnonymously();
+          } catch (_) {}
+        }
+      } catch (_) {}
+
+      // Normalisasi MIME type untuk bucket avatars (image/jpeg, image/png, image/webp)
+      String validMime = 'image/jpeg';
+      String extension = 'jpg';
+      final lowerMime = mimeType.toLowerCase();
+      if (lowerMime.contains('png')) {
+        validMime = 'image/png';
+        extension = 'png';
+      } else if (lowerMime.contains('webp')) {
+        validMime = 'image/webp';
+        extension = 'webp';
+      }
+
+      // Validasi batas ukuran file (2MB)
+      if (imageBytes.lengthInBytes > 2 * 1024 * 1024) {
+        return AvatarUploadResult(
+          success: false,
+          error:
+              'Ukuran foto terlalu besar (${(imageBytes.lengthInBytes / (1024 * 1024)).toStringAsFixed(1)} MB). Batas maksimum Supabase adalah 2MB.',
+        );
+      }
+
+      final baseKey = userIdOrEmail.trim().isNotEmpty
+          ? userIdOrEmail.trim()
+          : 'user';
+      final safeKey = baseKey.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = '${safeKey}_$timestamp.$extension';
+
+      debugPrint(
+        '📤 Mengunggah Avatar pengguna ke Supabase Storage ($bucketAvatars/$fileName, $validMime, ${imageBytes.lengthInBytes} bytes)...',
+      );
+
+      // Coba upload tanpa upsert terlebih dahulu (hanya butuh izin INSERT sederhana)
+      try {
+        await client.storage.from(bucketAvatars).uploadBinary(
+          fileName,
+          imageBytes,
+          fileOptions: FileOptions(
+            contentType: validMime,
+            upsert: false,
+          ),
+        );
+      } catch (uploadErr) {
+        // Jika butuh upsert atau ada konflik, coba dengan upsert: true
+        debugPrint('Catatan upload tanpa upsert: $uploadErr. Mencoba dengan upsert...');
+        await client.storage.from(bucketAvatars).uploadBinary(
+          fileName,
+          imageBytes,
+          fileOptions: FileOptions(
+            contentType: validMime,
+            upsert: true,
+          ),
+        );
+      }
+
+      final publicUrl = client.storage.from(bucketAvatars).getPublicUrl(fileName);
+      debugPrint('✅ Avatar berhasil diunggah ke Supabase Storage: $publicUrl');
+      return AvatarUploadResult(success: true, url: publicUrl);
+    } on StorageException catch (se) {
+      debugPrint('⚠️ StorageException saat upload Avatar: ${se.message} (${se.statusCode})');
+      final isRls = se.message.toLowerCase().contains('security policy') ||
+          se.message.toLowerCase().contains('unauthorized') ||
+          se.statusCode == '403' ||
+          se.statusCode == '401';
+      return AvatarUploadResult(
+        success: false,
+        error: se.message,
+        isRlsError: isRls,
+      );
+    } catch (e) {
+      debugPrint('⚠️ Gagal unggah Avatar ke Supabase Storage: $e');
+      return AvatarUploadResult(success: false, error: e.toString());
+    }
+  }
+
   /// Unggah foto profil pengguna ke Supabase Storage (bucket: avatars)
   static Future<String?> uploadAvatar({
     required String userIdOrEmail,
     required Uint8List imageBytes,
     String mimeType = 'image/png',
   }) async {
-    try {
-      final client = SupabaseService.client;
-      final safeKey = userIdOrEmail.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-      final extension = mimeType.contains('jpeg') || mimeType.contains('jpg') ? 'jpg' : 'png';
-      final fileName = '$safeKey.$extension';
-
-      debugPrint('📤 Mengunggah Avatar pengguna ke Supabase Storage ($bucketAvatars/$fileName)...');
-
-      await client.storage.from(bucketAvatars).uploadBinary(
-        fileName,
-        imageBytes,
-        fileOptions: FileOptions(
-          contentType: mimeType,
-          upsert: true,
-        ),
-      );
-
-      final publicUrl = client.storage.from(bucketAvatars).getPublicUrl(fileName);
-      debugPrint('✅ Avatar berhasil diunggah ke Supabase Storage: $publicUrl');
-      return publicUrl;
-    } catch (e) {
-      debugPrint('⚠️ Gagal unggah Avatar ke Supabase Storage: $e');
-      return null;
-    }
+    final res = await uploadAvatarDetailed(
+      userIdOrEmail: userIdOrEmail,
+      imageBytes: imageBytes,
+      mimeType: mimeType,
+    );
+    return res.url;
   }
 
   /// Ambil URL publik avatar pengguna

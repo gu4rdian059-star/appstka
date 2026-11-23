@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
 
@@ -20,6 +21,9 @@ class SessionService {
   static const String _keyUserPointsPrefix = 'tka_user_points_';
   static const String _keyUserTierPrefix = 'tka_user_tier_';
   static const String _keyUserAvatarPrefix = 'tka_user_avatar_';
+  static const String _keyUserBirthDate = 'tka_user_birth_date';
+  static const String _keyUserGender = 'tka_user_gender';
+  static const String _keyUserDocType = 'tka_user_doc_type';
 
   /// Simpan pengaturan "Ingat Saya" dan kredensial identifier
   static Future<void> setRememberMe({
@@ -53,6 +57,9 @@ class SessionService {
     required String emailOrPhone,
     String? phone,
     String? nik,
+    DateTime? birthDate,
+    int? gender,
+    int? docType,
     String? password,
     String? userId,
   }) async {
@@ -66,6 +73,15 @@ class SessionService {
     }
     if (nik != null && nik.isNotEmpty) {
       await prefs.setString(_keyUserNik, nik);
+    }
+    if (birthDate != null) {
+      await prefs.setString(_keyUserBirthDate, birthDate.toIso8601String());
+    }
+    if (gender != null) {
+      await prefs.setInt(_keyUserGender, gender);
+    }
+    if (docType != null) {
+      await prefs.setInt(_keyUserDocType, docType);
     }
     if (password != null && password.isNotEmpty) {
       await prefs.setString(_keyUserPassword, password);
@@ -136,6 +152,153 @@ class SessionService {
   static Future<String> getUserNik() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyUserNik) ?? '3514062607090001';
+  }
+
+  /// Ambil Tanggal Lahir user yang aktif
+  static Future<DateTime?> getUserBirthDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyUserBirthDate);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        return DateTime.parse(raw);
+      } catch (_) {}
+    }
+    return DateTime(1994, 6, 26);
+  }
+
+  /// Ambil jenis kelamin user (0: Laki-laki, 1: Perempuan)
+  static Future<int> getUserGender() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyUserGender) ?? 0;
+  }
+
+  /// Ambil tipe dokumen identitas user (0: KTP/NIK, 1: Paspor)
+  static Future<int> getUserDocType() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyUserDocType) ?? 0;
+  }
+
+  /// Sinkronkan pembaruan data profil pengguna ke tabel 'profiles' di Supabase
+  static Future<bool> syncUserProfileToSupabase({
+    required String name,
+    required String email,
+    String? phone,
+    String? nik,
+    DateTime? birthDate,
+    int? gender,
+    int? docType,
+    String? avatarUrl,
+  }) async {
+    final cleanEmail = email.toLowerCase().trim();
+    if (cleanEmail.isEmpty) return false;
+
+    try {
+      final client = SupabaseService.client;
+      final currentUserId = client.auth.currentUser?.id ?? await getUserId();
+
+      Map<String, dynamic> updateData = {
+        'full_name': name,
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
+        if (avatarUrl != null &&
+            avatarUrl.isNotEmpty &&
+            avatarUrl.startsWith('http'))
+          'avatar_url': avatarUrl,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      if (nik != null && nik.isNotEmpty) updateData['nik'] = nik;
+      if (gender != null) {
+        updateData['gender'] = gender == 0 ? 'Laki-laki' : 'Perempuan';
+      }
+      if (docType != null) {
+        updateData['document_type'] = docType == 0 ? 'KTP / NIK' : 'Paspor';
+      }
+      if (birthDate != null) {
+        updateData['birth_date'] = birthDate.toIso8601String().split('T').first;
+      }
+
+      debugPrint('🔄 Menyelaraskan profil ke Supabase profiles untuk: $cleanEmail');
+
+      int attempts = 0;
+      bool success = false;
+      while (updateData.isNotEmpty && attempts < 3) {
+        attempts++;
+        try {
+          // 1. Coba update record yang sudah ada
+          final query = client.from('profiles').update(updateData);
+          if (currentUserId != null &&
+              currentUserId.isNotEmpty &&
+              !currentUserId.startsWith('usr-')) {
+            await query.eq('id', currentUserId);
+          } else {
+            await query.eq('email', cleanEmail);
+          }
+
+          debugPrint(
+            '✅ [Supabase DB] Profil berhasil diperbarui di Supabase: $updateData',
+          );
+          success = true;
+          break;
+        } on PostgrestException catch (pe) {
+          final msg = pe.message.toLowerCase();
+          bool removedAny = false;
+
+          // Tangani PGRST204: Could not find the 'avatar_url' column of 'profiles' in the schema cache
+          final pgrstMatch = RegExp(
+            r"could not find the '([a-zA-Z0-9_]+)' column",
+          ).firstMatch(msg);
+          if (pgrstMatch != null) {
+            final col = pgrstMatch.group(1);
+            if (col != null && updateData.containsKey(col)) {
+              debugPrint(
+                'ℹ️ Kolom "$col" belum ada di schema profiles Supabase. Melepas kolom tersebut...',
+              );
+              updateData.remove(col);
+              removedAny = true;
+            }
+          }
+
+          // Tangani 42703: column profiles.xyz does not exist
+          final colMatch = RegExp(
+            r"column (?:profiles\.)?([a-zA-Z0-9_]+) does not exist",
+          ).firstMatch(msg);
+          if (colMatch != null) {
+            final col = colMatch.group(1);
+            if (col != null && updateData.containsKey(col)) {
+              debugPrint(
+                'ℹ️ Kolom "$col" belum ada di tabel profiles Supabase. Melepas kolom tersebut...',
+              );
+              updateData.remove(col);
+              removedAny = true;
+            }
+          }
+
+          if (!removedAny) {
+            if (updateData.containsKey('avatar_url')) {
+              updateData.remove('avatar_url');
+            } else if (updateData.containsKey('document_type')) {
+              updateData.remove('document_type');
+            } else if (updateData.containsKey('birth_date')) {
+              updateData.remove('birth_date');
+            } else if (updateData.containsKey('gender')) {
+              updateData.remove('gender');
+            } else if (updateData.containsKey('nik')) {
+              updateData.remove('nik');
+            } else {
+              break;
+            }
+          }
+        } catch (e) {
+          debugPrint('Catatan error update profiles: $e');
+          break;
+        }
+      }
+
+      return success;
+    } catch (e) {
+      debugPrint('Error syncUserProfileToSupabase: $e');
+      return false;
+    }
   }
 
   /// Ambil saldo TKAPay user aktif (User baru = 0, demo Samuel = 250000, sinkron ke Supabase)
