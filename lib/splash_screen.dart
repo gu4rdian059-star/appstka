@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import 'onboarding/onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -61,8 +63,14 @@ class _SplashScreenState extends State<SplashScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       precacheImage(const AssetImage('assets/images/logo_train.png'), context);
-      precacheImage(const AssetImage('assets/images/logo_tka_text.png'), context);
-      precacheImage(const AssetImage('assets/images/logo_tka_full.png'), context);
+      precacheImage(
+        const AssetImage('assets/images/logo_tka_text.png'),
+        context,
+      );
+      precacheImage(
+        const AssetImage('assets/images/logo_tka_full.png'),
+        context,
+      );
       if (mounted) {
         _introController.forward(from: 0.0);
       }
@@ -315,11 +323,10 @@ class _SplashScreenState extends State<SplashScreen>
                                 sparkParticles: _sparkParticles,
                                 speedLines: _speedLines,
                                 ambientSparkles: _ambientSparkles,
-                                computeTrainDx: (time) =>
-                                    _computeTrainOffsetX(
-                                      time,
-                                      maxSlideDistance,
-                                    ),
+                                computeTrainDx: (time) => _computeTrainOffsetX(
+                                  time,
+                                  maxSlideDistance,
+                                ),
                               ),
                             ),
                           ),
@@ -332,10 +339,7 @@ class _SplashScreenState extends State<SplashScreen>
                             child: Opacity(
                               opacity: tkaOpacity.clamp(0.0, 1.0),
                               child: Transform.translate(
-                                offset: Offset(
-                                  0.0,
-                                  16.0 * (1.0 - tkaProgress),
-                                ),
+                                offset: Offset(0.0, 16.0 * (1.0 - tkaProgress)),
                                 child: Transform.scale(
                                   scale: 0.86 + (0.14 * tkaProgress),
                                   alignment: Alignment.topCenter,
@@ -741,9 +745,7 @@ class _TrainEffectsPainter extends CustomPainter {
         1.0,
       );
       final edgeAlpha = math.sin(distRatio * math.pi) * 0.32 * fadeOut;
-      sleeperPaint.color = const Color(
-        0xFF062056,
-      ).withValues(alpha: edgeAlpha);
+      sleeperPaint.color = const Color(0xFF062056).withValues(alpha: edgeAlpha);
 
       canvas.drawLine(
         Offset(x, trackY + 2.5),
@@ -778,12 +780,7 @@ class _TrainEffectsPainter extends CustomPainter {
       ..lineTo(nosePos.dx, nosePos.dy + 3.0)
       ..close();
 
-    final rect = Rect.fromLTWH(
-      nosePos.dx,
-      nosePos.dy - 20.0,
-      coneLength,
-      38.0,
-    );
+    final rect = Rect.fromLTWH(nosePos.dx, nosePos.dy - 20.0, coneLength, 38.0);
 
     final conePaint = Paint()
       ..shader = LinearGradient(
@@ -814,8 +811,7 @@ class _TrainEffectsPainter extends CustomPainter {
       final currentX = originX + p.driftX * easeLife;
       final currentY =
           originY + p.driftY * easeLife - (8.0 * math.sin(lifeT * math.pi));
-      final radius =
-          p.startRadius + (p.endRadius - p.startRadius) * easeLife;
+      final radius = p.startRadius + (p.endRadius - p.startRadius) * easeLife;
 
       final fadeIn = (lifeT / 0.20).clamp(0.0, 1.0);
       final fadeOut = math.pow(1.0 - lifeT, 1.4).toDouble();
@@ -917,11 +913,8 @@ class _TrainEffectsPainter extends CustomPainter {
     for (final line in speedLines) {
       if (progress < line.startT || progress > line.endT) continue;
 
-      final localT =
-          ((progress - line.startT) / (line.endT - line.startT)).clamp(
-            0.0,
-            1.0,
-          );
+      final localT = ((progress - line.startT) / (line.endT - line.startT))
+          .clamp(0.0, 1.0);
       final alpha = math.sin(localT * math.pi) * 0.68;
       if (alpha <= 0.01) continue;
 

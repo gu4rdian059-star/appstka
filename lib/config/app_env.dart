@@ -17,7 +17,11 @@ class AppEnv {
     }
   }
 
-  static String _read(String key, {String defineValue = '', String fallback = ''}) {
+  static String _read(
+    String key, {
+    String defineValue = '',
+    String fallback = '',
+  }) {
     if (defineValue.isNotEmpty) return defineValue;
     if (_loaded) {
       final val = dotenv.maybeGet(key);
@@ -40,6 +44,64 @@ class AppEnv {
         fallback: 'sb_publishable_hjlSBckeJ06uoUd6BOdTHA_WhNjy8u1',
       );
 
+  // ================= GOOGLE OAUTH CONFIGURATION =================
+  static String get googleWebClientId => _read(
+        'GOOGLE_WEB_CLIENT_ID',
+        defineValue: const String.fromEnvironment('GOOGLE_WEB_CLIENT_ID'),
+      );
+
+  static String get googleAndroidClientId => _read(
+        'GOOGLE_ANDROID_CLIENT_ID',
+        defineValue: const String.fromEnvironment('GOOGLE_ANDROID_CLIENT_ID'),
+      );
+
+  static String get googleClientSecret => _read(
+        'GOOGLE_CLIENT_SECRET',
+        defineValue: const String.fromEnvironment('GOOGLE_CLIENT_SECRET'),
+      );
+
+  static String get googleSupabaseCallbackUrl => _read(
+        'GOOGLE_SUPABASE_CALLBACK_URL',
+        defineValue:
+            const String.fromEnvironment('GOOGLE_SUPABASE_CALLBACK_URL'),
+        fallback: 'https://lbjpvbwmctzuhkqdidpt.supabase.co/auth/v1/callback',
+      );
+
+  static String get googleLocalCallbackUrl => _read(
+        'GOOGLE_LOCAL_CALLBACK_URL',
+        defineValue: const String.fromEnvironment('GOOGLE_LOCAL_CALLBACK_URL'),
+        fallback: 'http://127.0.0.1:8000/auth/google/callback',
+      );
+
+  static String get googleAppRedirectUri => _read(
+        'GOOGLE_APP_REDIRECT_URI',
+        defineValue: const String.fromEnvironment('GOOGLE_APP_REDIRECT_URI'),
+        fallback: 'com.example.appstka://login-callback',
+      );
+
+  // ================= CLOUDFLARE TURNSTILE CONFIGURATION =================
+  static bool get turnstileEnabled {
+    final raw = _read(
+      'TURNSTILE_ENABLED',
+      defineValue: const String.fromEnvironment('TURNSTILE_ENABLED'),
+      fallback: 'true',
+    ).toLowerCase();
+    return raw == 'true' || raw == '1' || raw == 'yes';
+  }
+
+  static String get turnstileSiteKey => _read(
+        'TURNSTILE_SITE_KEY',
+        defineValue: const String.fromEnvironment('TURNSTILE_SITE_KEY'),
+        fallback: '1x00000000000000000000AA',
+      );
+
+  static String get turnstileSecretKey => _read(
+        'TURNSTILE_SECRET_KEY',
+        defineValue: const String.fromEnvironment('TURNSTILE_SECRET_KEY'),
+        fallback: '1x0000000000000000000000000000000AA',
+      );
+
+  // ================= MAPTILER & BREVO CONFIGURATION =================
   static String get mapTilerApiKey => _read(
         'MAPTILER_API_KEY',
         defineValue: const String.fromEnvironment('MAPTILER_API_KEY'),
@@ -76,4 +138,3 @@ class AppEnv {
   static bool get hasMapTilerConfig => mapTilerStyleUrl.isNotEmpty;
   static bool get hasBrevoConfig => brevoApiKey.isNotEmpty;
 }
-

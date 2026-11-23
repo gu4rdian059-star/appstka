@@ -8,19 +8,23 @@ import '../orders/order_detail_screen.dart';
 import '../tickets/my_tickets_screen.dart';
 import '../profile/profile_screen.dart';
 import '../notifications/notifications_screen.dart';
-import '../tracking/live_map_screen.dart';
-import '../tracking/train_schedule_screen.dart';
-import '../tracking/favorites_screen.dart';
+import '../tracking/live_tracking_screen.dart';
+import '../services_menu/lokal_screen.dart';
+import '../services_menu/komuter_screen.dart';
+import '../services_menu/lrt_mrt_screen.dart';
+import '../services_menu/bandara_screen.dart';
+import '../services_menu/katalog_ka_screen.dart';
+import '../services_menu/customer_service_screen.dart';
+import '../services_menu/lainnya_screen.dart';
+import '../wallet/scan_qr_screen.dart';
+import '../wallet/top_up_screen.dart';
+import '../wallet/top_up_history_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String? userName;
   final int initialTabIndex;
 
-  const DashboardScreen({
-    super.key,
-    this.userName,
-    this.initialTabIndex = 0,
-  });
+  const DashboardScreen({super.key, this.userName, this.initialTabIndex = 0});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -37,22 +41,18 @@ class _DashboardScreenState extends State<DashboardScreen>
   List<BookingModel> _activeBookings = [];
   bool _isLoadingBookings = true;
 
-  int _activeNavIndex = 0; // 0: Live Map (Utama), 1: Jadwal, 2: Favorit, 3: Tiket, 4: Profil
-  int _ticketHubSubTab = 0; // 0: Beranda Pesan, 1: Pesanan Saya, 2: E-Tiket
-  final ValueNotifier<MapFocusRequest?> _mapFocusNotifier =
-      ValueNotifier<MapFocusRequest?>(null);
-  int _focusNonce = 0;
+  int _activeNavIndex = 0; // 0: Beranda, 1: Pesanan, 2: Tiket Saya, 3: Akun
   int _selectedTripType = 0; // 0: Sekali Jalan, 1: Pulang Pergi
   String _selectedClassFilter = 'Semua';
   bool _returnTripChecked = false;
   DateTime _departureDate = DateTime.now().add(const Duration(days: 1));
   DateTime? _returnDate;
 
-  // Rute Kereta Default
-  String _originStation = 'Gambir (GMR)';
-  String _originCity = 'Jakarta Pusat';
-  String _destStation = 'Pasar Turi (SBI)';
-  String _destCity = 'Surabaya';
+  // Rute Kereta Default (Awalnya kosong)
+  String? _originStation;
+  String? _originCity;
+  String? _destStation;
+  String? _destCity;
 
   void _pickDashboardDate(bool isReturn) async {
     final now = DateTime.now();
@@ -73,7 +73,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       initialDate: initialDate,
       firstDate: firstDate,
       lastDate: lastDate,
-      helpText: isReturn ? 'PILIH TANGGAL PULANG' : 'PILIH TANGGAL KEBERANGKATAN',
+      helpText: isReturn
+          ? 'PILIH TANGGAL PULANG'
+          : 'PILIH TANGGAL KEBERANGKATAN',
       cancelText: 'BATAL',
       confirmText: 'PILIH',
     );
@@ -96,8 +98,18 @@ class _DashboardScreenState extends State<DashboardScreen>
   String _formatDashboardDate(DateTime d) {
     const days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
     ];
     final dayName = days[d.weekday - 1];
     final monthName = months[d.month - 1];
@@ -137,7 +149,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     final balance = await SessionService.getUserBalance();
     final points = await SessionService.getUserPoints();
     final tier = await SessionService.getUserTier();
-    final bookings = await UserDatabaseService.getBookings(statusFilter: 'Sudah Dibayar');
+    final bookings = await UserDatabaseService.getBookings(
+      statusFilter: 'Sudah Dibayar',
+    );
 
     if (mounted) {
       setState(() {
@@ -158,116 +172,25 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _showTopUpDialog() {
-    final amounts = [50000, 100000, 200000, 500000];
-    int selectedAmount = 100000;
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) => Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Top Up Saldo TKAPay',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Saldo saat ini: Rp ${_formatNumber(_userBalance)}',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 16),
-              const Text('Pilih Nominal Top Up:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: amounts.map((a) {
-                  final isSel = selectedAmount == a;
-                  return ChoiceChip(
-                    label: Text('Rp ${_formatNumber(a)}'),
-                    selected: isSel,
-                    selectedColor: const Color(0xFF062056),
-                    labelStyle: TextStyle(
-                      color: isSel ? Colors.white : const Color(0xFF062056),
-                      fontWeight: FontWeight.bold,
-                    ),
-                    onSelected: (_) => setModalState(() => selectedAmount = a),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF062056),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () async {
-                    final newBal = _userBalance + selectedAmount;
-                    await SessionService.setUserBalance(newBal);
-                    Navigator.pop(ctx);
-                    if (mounted) {
-                      setState(() => _userBalance = newBal);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Top up Rp ${_formatNumber(selectedAmount)} berhasil! Saldo baru: Rp ${_formatNumber(newBal)}'),
-                          backgroundColor: const Color(0xFF10B981),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('Top Up Sekarang', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _animController.dispose();
-    _mapFocusNotifier.dispose();
     super.dispose();
   }
 
-  void _trackTrainOnLiveMap(String tripId) {
-    setState(() => _activeNavIndex = 0);
-    _focusNonce++;
-    _mapFocusNotifier.value = MapFocusRequest(tripId: tripId, nonce: _focusNonce);
-  }
-
-  void _focusStationOnLiveMap(String stationCode) {
-    setState(() => _activeNavIndex = 0);
-    _focusNonce++;
-    _mapFocusNotifier.value = MapFocusRequest(
-      stationCode: stationCode,
-      nonce: _focusNonce,
-    );
-  }
-
   void _swapStations() {
+    if (_originStation == null || _destStation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Silakan pilih stasiun asal dan stasiun tujuan terlebih dahulu sebelum menukar stasiun!',
+          ),
+          backgroundColor: Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     setState(() {
       final tempStation = _originStation;
       final tempCity = _originCity;
@@ -319,43 +242,31 @@ class _DashboardScreenState extends State<DashboardScreen>
       curve: const Interval(0.55, 1.0, curve: Curves.easeOutCubic),
     );
 
-    final isMapTab = _activeNavIndex == 0;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
-      body: Column(
-        children: [
-          // Konten Tab Utama (Full width untuk Live Map, responsif untuk tab lain)
-          Expanded(
-            child: isMapTab
-                ? _buildCurrentTab(
-                    context,
-                    headerAnim: headerAnim,
-                    walletAnim: walletAnim,
-                    menuAnim: menuAnim,
-                    searchCardAnim: searchCardAnim,
-                    ticketAnim: ticketAnim,
-                    promoAnim: promoAnim,
-                  )
-                : Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 680),
-                      child: _buildCurrentTab(
-                        context,
-                        headerAnim: headerAnim,
-                        walletAnim: walletAnim,
-                        menuAnim: menuAnim,
-                        searchCardAnim: searchCardAnim,
-                        ticketAnim: ticketAnim,
-                        promoAnim: promoAnim,
-                      ),
-                    ),
-                  ),
-          ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Column(
+            children: [
+              // Konten Tab Utama
+              Expanded(
+                child: _buildCurrentTab(
+                  context,
+                  headerAnim: headerAnim,
+                  walletAnim: walletAnim,
+                  menuAnim: menuAnim,
+                  searchCardAnim: searchCardAnim,
+                  ticketAnim: ticketAnim,
+                  promoAnim: promoAnim,
+                ),
+              ),
 
-          // ==================== 8. BOTTOM NAVIGATION BAR ====================
-          _buildBottomNavigationBar(),
-        ],
+              // ==================== 8. BOTTOM NAVIGATION BAR ====================
+              _buildBottomNavigationBar(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -371,17 +282,19 @@ class _DashboardScreenState extends State<DashboardScreen>
   }) {
     switch (_activeNavIndex) {
       case 1:
-        return TrainScheduleScreen(
-          onTrackTrainOnMap: _trackTrainOnLiveMap,
-          onFocusStationOnMap: _focusStationOnLiveMap,
+        return OrdersScreen(
+          embedded: true,
+          onNavigateToTickets: () => setState(() => _activeNavIndex = 2),
         );
       case 2:
-        return FavoritesScreen(
-          onTrackTrainOnMap: _trackTrainOnLiveMap,
-          onFocusStationOnMap: _focusStationOnLiveMap,
-        );
+        return const MyTicketsScreen(embedded: true);
       case 3:
-        return _buildTicketHubTab(
+        return ProfileScreen(
+          embedded: true,
+          onOpenOrders: () => setState(() => _activeNavIndex = 1),
+        );
+      default:
+        return _buildHomeScrollView(
           context,
           headerAnim: headerAnim,
           walletAnim: walletAnim,
@@ -390,113 +303,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           ticketAnim: ticketAnim,
           promoAnim: promoAnim,
         );
-      case 4:
-        return ProfileScreen(
-          embedded: true,
-          onOpenOrders: () => setState(() {
-            _activeNavIndex = 3;
-            _ticketHubSubTab = 1;
-          }),
-          onOpenFavorites: () => setState(() => _activeNavIndex = 2),
-          onTrackTrainOnMap: _trackTrainOnLiveMap,
-          onFocusStationOnMap: _focusStationOnLiveMap,
-        );
-      default:
-        return LiveMapScreen(
-          focusRequestNotifier: _mapFocusNotifier,
-          onOpenOrders: () => setState(() {
-            _activeNavIndex = 3;
-            _ticketHubSubTab = 1;
-          }),
-          onOpenTickets: () => setState(() {
-            _activeNavIndex = 3;
-            _ticketHubSubTab = 2;
-          }),
-        );
     }
-  }
-
-  Widget _buildTicketHubTab(
-    BuildContext context, {
-    required Animation<double> headerAnim,
-    required Animation<double> walletAnim,
-    required Animation<double> menuAnim,
-    required Animation<double> searchCardAnim,
-    required Animation<double> ticketAnim,
-    required Animation<double> promoAnim,
-  }) {
-    return Column(
-      children: [
-        Container(
-          color: const Color(0xFF062056),
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-          child: SafeArea(
-            bottom: false,
-            child: Row(
-              children: [
-                _hubChip(0, 'Pesan Tiket', Icons.search_rounded),
-                const SizedBox(width: 8),
-                _hubChip(1, 'Pesanan', Icons.receipt_long_rounded),
-                const SizedBox(width: 8),
-                _hubChip(2, 'E-Tiket', Icons.confirmation_number_rounded),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: _ticketHubSubTab == 1
-              ? OrdersScreen(
-                  embedded: true,
-                  onNavigateToTickets: () =>
-                      setState(() => _ticketHubSubTab = 2),
-                )
-              : _ticketHubSubTab == 2
-                  ? const MyTicketsScreen(embedded: true)
-                  : _buildHomeScrollView(
-                      context,
-                      headerAnim: headerAnim,
-                      walletAnim: walletAnim,
-                      menuAnim: menuAnim,
-                      searchCardAnim: searchCardAnim,
-                      ticketAnim: ticketAnim,
-                      promoAnim: promoAnim,
-                    ),
-        ),
-      ],
-    );
-  }
-
-  Widget _hubChip(int index, String label, IconData icon) {
-    final sel = _ticketHubSubTab == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _ticketHubSubTab = index),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: sel
-                ? const Color(0xFFF26716)
-                : Colors.white.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 14, color: Colors.white),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildHomeScrollView(
@@ -512,118 +319,114 @@ class _DashboardScreenState extends State<DashboardScreen>
       onRefresh: _loadUserData,
       color: const Color(0xFFF26716),
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
         child: Column(
-        children: [
-          // ==================== 1. HEADER BIRU NAVY ====================
-          SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, -0.4),
-              end: Offset.zero,
-            ).animate(headerAnim),
-            child: FadeTransition(
-              opacity: headerAnim,
-              child: _buildNavyHeader(context),
-            ),
-          ),
-
-          // ==================== 2. KARTU TKAPay MELAYANG ====================
-          Transform.translate(
-            offset: const Offset(0, -42),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: ScaleTransition(
-                scale: walletAnim,
-                child: _buildWalletCard(),
+          children: [
+            // ==================== 1. HEADER BIRU NAVY ====================
+            SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, -0.4),
+                end: Offset.zero,
+              ).animate(headerAnim),
+              child: FadeTransition(
+                opacity: headerAnim,
+                child: _buildNavyHeader(context),
               ),
             ),
-          ),
 
-          // Geser ke atas agar tidak ada gap besar akibat translate kartu
-          Transform.translate(
-            offset: const Offset(0, -30),
-            child: Column(
-              children: [
-                // ==================== 3. GRID 8 MENU LAYANAN ====================
-                FadeTransition(
-                  opacity: menuAnim,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.15),
-                      end: Offset.zero,
-                    ).animate(menuAnim),
-                    child: _buildServiceMenuGrid(),
-                  ),
+            // ==================== 2. KARTU TKAPay MELAYANG ====================
+            Transform.translate(
+              offset: const Offset(0, -42),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: ScaleTransition(
+                  scale: walletAnim,
+                  child: _buildWalletCard(),
                 ),
-
-                const SizedBox(height: 18),
-
-                // ==================== 4. FORM PEMESANAN TIKET ====================
-                FadeTransition(
-                  opacity: searchCardAnim,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.18),
-                      end: Offset.zero,
-                    ).animate(searchCardAnim),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                      ),
-                      child: _buildSearchTicketCard(),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 22),
-
-                // ==================== 5. PERJALANAN MENDATANG ====================
-                FadeTransition(
-                  opacity: ticketAnim,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.20),
-                      end: Offset.zero,
-                    ).animate(ticketAnim),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                      ),
-                      child: _buildUpcomingJourneySection(),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // ==================== 6. BANNER LIVE TRACKING ====================
-                FadeTransition(
-                  opacity: promoAnim,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                    ),
-                    child: _buildLiveTrackingBanner(),
-                  ),
-                ),
-
-                const SizedBox(height: 22),
-
-                // ==================== 7. PROMO MENARIK ====================
-                FadeTransition(
-                  opacity: promoAnim,
-                  child: _buildPromosSection(),
-                ),
-
-                const SizedBox(height: 30),
-              ],
+              ),
             ),
-          ),
-        ],
+
+            // Geser ke atas agar tidak ada gap besar akibat translate kartu
+            Transform.translate(
+              offset: const Offset(0, -30),
+              child: Column(
+                children: [
+                  // ==================== 3. GRID 8 MENU LAYANAN ====================
+                  FadeTransition(
+                    opacity: menuAnim,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.15),
+                        end: Offset.zero,
+                      ).animate(menuAnim),
+                      child: _buildServiceMenuGrid(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // ==================== 4. FORM PEMESANAN TIKET ====================
+                  FadeTransition(
+                    opacity: searchCardAnim,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.18),
+                        end: Offset.zero,
+                      ).animate(searchCardAnim),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        child: _buildSearchTicketCard(),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  // ==================== 5. PERJALANAN MENDATANG ====================
+                  FadeTransition(
+                    opacity: ticketAnim,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.20),
+                        end: Offset.zero,
+                      ).animate(ticketAnim),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        child: _buildUpcomingJourneySection(),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ==================== 6. BANNER LIVE TRACKING ====================
+                  FadeTransition(
+                    opacity: promoAnim,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      child: _buildLiveTrackingBanner(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  // ==================== 7. PROMO MENARIK ====================
+                  FadeTransition(
+                    opacity: promoAnim,
+                    child: _buildPromosSection(),
+                  ),
+
+                  const SizedBox(height: 30),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   // ==========================================================================
   // 1. HEADER BIRU NAVY (LOGO, GREETING, NOTIFIKASI, BENDERA ID)
@@ -713,7 +516,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => NotificationsScreen(
-                        onOpenTickets: () => setState(() => _activeNavIndex = 2),
+                        onOpenTickets: () =>
+                            setState(() => _activeNavIndex = 2),
                         onOpenOrders: () => setState(() => _activeNavIndex = 1),
                       ),
                     ),
@@ -904,12 +708,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                     icon: Icons.qr_code_scanner_rounded,
                     label: 'Scan',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Fitur Scan QR TKAPay siap digunakan.'),
-                          backgroundColor: Color(0xFF062056),
-                          behavior: SnackBarBehavior.floating,
-                        ),
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ScanQrScreen()),
                       );
                     },
                   ),
@@ -917,13 +717,26 @@ class _DashboardScreenState extends State<DashboardScreen>
                   _buildWalletAction(
                     icon: Icons.add_circle_outline_rounded,
                     label: 'Top Up',
-                    onTap: _showTopUpDialog,
+                    onTap: () async {
+                      final refreshed = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(builder: (_) => const TopUpScreen()),
+                      );
+                      if (refreshed == true || mounted) {
+                        _loadUserData();
+                      }
+                    },
                   ),
                   const SizedBox(width: 14),
                   _buildWalletAction(
                     icon: Icons.history_rounded,
                     label: 'Riwayat',
-                    onTap: () => setState(() => _activeNavIndex = 1),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const TopUpHistoryScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -981,7 +794,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: _userTier.contains('Gold') ? const Color(0xFFFFF3E0) : const Color(0xFFE8F1FC),
+                  color: _userTier.contains('Gold')
+                      ? const Color(0xFFFFF3E0)
+                      : const Color(0xFFE8F1FC),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: _userTier.contains('Gold')
@@ -995,7 +810,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Icon(
                       Icons.circle,
                       size: 7,
-                      color: _userTier.contains('Gold') ? const Color(0xFFE65100) : const Color(0xFF1565C0),
+                      color: _userTier.contains('Gold')
+                          ? const Color(0xFFE65100)
+                          : const Color(0xFF1565C0),
                     ),
                     const SizedBox(width: 5),
                     Text(
@@ -1003,14 +820,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: _userTier.contains('Gold') ? const Color(0xFFE65100) : const Color(0xFF1565C0),
+                        color: _userTier.contains('Gold')
+                            ? const Color(0xFFE65100)
+                            : const Color(0xFF1565C0),
                       ),
                     ),
                     const SizedBox(width: 2),
                     Icon(
                       Icons.chevron_right_rounded,
                       size: 15,
-                      color: _userTier.contains('Gold') ? const Color(0xFFE65100) : const Color(0xFF1565C0),
+                      color: _userTier.contains('Gold')
+                          ? const Color(0xFFE65100)
+                          : const Color(0xFF1565C0),
                     ),
                   ],
                 ),
@@ -1092,12 +913,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 iconColor: Colors.white,
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const AntarKotaScreen(
-                        initialOrigin: 'Manggarai (MRI)',
-                        initialDestination: 'Bogor (BOO)',
-                      ),
-                    ),
+                    MaterialPageRoute(builder: (_) => const LokalScreen()),
                   );
                 },
               ),
@@ -1108,12 +924,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 iconColor: Colors.white,
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const AntarKotaScreen(
-                        initialOrigin: 'Jakarta Kota (JAKK)',
-                        initialDestination: 'Bekasi (BKS)',
-                      ),
-                    ),
+                    MaterialPageRoute(builder: (_) => const KomuterScreen()),
                   );
                 },
               ),
@@ -1124,12 +935,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 iconColor: Colors.white,
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const AntarKotaScreen(
-                        initialOrigin: 'Dukuh Atas BNI',
-                        initialDestination: 'Lebak Bulus Grab',
-                      ),
-                    ),
+                    MaterialPageRoute(builder: (_) => const LrtMrtScreen()),
                   );
                 },
               ),
@@ -1140,12 +946,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 iconColor: Colors.white,
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const AntarKotaScreen(
-                        initialOrigin: 'Manggarai (MRI)',
-                        initialDestination: 'Bandara Soekarno-Hatta (BST)',
-                      ),
-                    ),
+                    MaterialPageRoute(builder: (_) => const BandaraScreen()),
                   );
                 },
               ),
@@ -1164,11 +965,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFFE8F1FC),
                 iconColor: const Color(0xFF1976D2),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Peta Live Tracking Kereta Real-Time siap dipantau.'),
-                      backgroundColor: Color(0xFF062056),
-                      behavior: SnackBarBehavior.floating,
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const LiveTrackingScreen(),
                     ),
                   );
                 },
@@ -1179,12 +978,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFFFFF3E0),
                 iconColor: const Color(0xFFE65100),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Katalog Rangkaian & Fasilitas Gerbong Kereta TKA.'),
-                      backgroundColor: Color(0xFF062056),
-                      behavior: SnackBarBehavior.floating,
-                    ),
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const KatalogKaScreen()),
                   );
                 },
               ),
@@ -1194,11 +989,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFFE8F5E9),
                 iconColor: const Color(0xFF2E7D32),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Customer Service TKA siap melayani Anda 24/7.'),
-                      backgroundColor: Color(0xFF062056),
-                      behavior: SnackBarBehavior.floating,
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const CustomerServiceScreen(),
                     ),
                   );
                 },
@@ -1209,12 +1002,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 bgColor: const Color(0xFFECEFF1),
                 iconColor: const Color(0xFF546E7A),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Menu Layanan Tambahan TKA Mobile.'),
-                      backgroundColor: Color(0xFF062056),
-                      behavior: SnackBarBehavior.floating,
-                    ),
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LainnyaScreen()),
                   );
                 },
               ),
@@ -1384,94 +1173,124 @@ class _DashboardScreenState extends State<DashboardScreen>
               Column(
                 children: [
                   // Stasiun Asal
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(14, 10, 50, 10),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade200),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'STASIUN ASAL',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade500,
-                            letterSpacing: 0.5,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AntarKotaScreen(
+                            initialOrigin: _originStation,
+                            initialDestination: _destStation,
+                            initialDate: _departureDate,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _originStation,
-                              style: const TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF062056),
-                              ),
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(14, 10, 50, 10),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade200),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'STASIUN ASAL',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade500,
+                              letterSpacing: 0.5,
                             ),
-                            Text(
-                              _originCity,
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _originStation ?? 'Pilih Stasiun Asal',
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: _originStation != null
+                                      ? const Color(0xFF062056)
+                                      : Colors.grey.shade400,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              Text(
+                                _originCity ?? 'Ketuk untuk memilih',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 
                   const SizedBox(height: 10),
 
                   // Stasiun Tujuan
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(14, 10, 50, 10),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade200),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'STASIUN TUJUAN',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade500,
-                            letterSpacing: 0.5,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AntarKotaScreen(
+                            initialOrigin: _originStation,
+                            initialDestination: _destStation,
+                            initialDate: _departureDate,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _destStation,
-                              style: const TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF062056),
-                              ),
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(14, 10, 50, 10),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade200),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'STASIUN TUJUAN',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade500,
+                              letterSpacing: 0.5,
                             ),
-                            Text(
-                              _destCity,
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _destStation ?? 'Pilih Stasiun Tujuan',
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: _destStation != null
+                                      ? const Color(0xFF062056)
+                                      : Colors.grey.shade400,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              Text(
+                                _destCity ?? 'Ketuk untuk memilih',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -1583,9 +1402,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _returnTripChecked ? const Color(0xFFFFF7ED) : Colors.white,
+                        color: _returnTripChecked
+                            ? const Color(0xFFFFF7ED)
+                            : Colors.white,
                         border: Border.all(
-                          color: _returnTripChecked ? const Color(0xFFFDBA74) : Colors.grey.shade200,
+                          color: _returnTripChecked
+                              ? const Color(0xFFFDBA74)
+                              : Colors.grey.shade200,
                         ),
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -1615,8 +1438,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   onChanged: (v) {
                                     setState(() {
                                       _returnTripChecked = v ?? false;
-                                      if (_returnTripChecked && _returnDate == null) {
-                                        _returnDate = _departureDate.add(const Duration(days: 2));
+                                      if (_returnTripChecked &&
+                                          _returnDate == null) {
+                                        _returnDate = _departureDate.add(
+                                          const Duration(days: 2),
+                                        );
                                       }
                                     });
                                   },
@@ -1883,10 +1709,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   const SizedBox(height: 2),
                   Text(
                     'Pesan tiket kereta sekarang untuk mulai perjalanan Anda.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ],
               ),
@@ -1894,13 +1717,20 @@ class _DashboardScreenState extends State<DashboardScreen>
             const SizedBox(width: 8),
             InkWell(
               onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AntarKotaScreen()),
-                ).then((_) => _loadUserData());
+                Navigator.of(context)
+                    .push(
+                      MaterialPageRoute(
+                        builder: (_) => const AntarKotaScreen(),
+                      ),
+                    )
+                    .then((_) => _loadUserData());
               },
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF26716),
                   borderRadius: BorderRadius.circular(10),
@@ -1974,7 +1804,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Expanded(
                     child: Row(
                       children: [
-                        const Icon(Icons.circle, size: 8, color: Color(0xFF2E7D32)),
+                        const Icon(
+                          Icons.circle,
+                          size: 8,
+                          color: Color(0xFF2E7D32),
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -2161,33 +1995,81 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                     ],
                   ),
-                  InkWell(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => OrderDetailScreen.fromBooking(ticket),
-                        ),
-                      ).then((_) => _loadUserData());
-                    },
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF26716),
+                  Row(
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  LiveTrackingScreen(booking: ticket),
+                            ),
+                          );
+                        },
                         borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text(
-                        'Lihat E-Tiket',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.my_location_rounded,
+                                size: 13,
+                                color: Color(0xFF0256B8),
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Lacak',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0256B8),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                      InkWell(
+                        onTap: () {
+                          Navigator.of(context)
+                              .push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      OrderDetailScreen.fromBooking(ticket),
+                                ),
+                              )
+                              .then((_) => _loadUserData());
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF26716),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            'Lihat E-Tiket',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -2202,120 +2084,128 @@ class _DashboardScreenState extends State<DashboardScreen>
   // 6. BANNER LIVE TRACKING (GRADASI UNGU DENGAN IKON PETIR)
   // ==========================================================================
   Widget _buildLiveTrackingBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6C5CE7), Color(0xFF4834D4)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6C5CE7).withValues(alpha: 0.30),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+    return InkWell(
+      onTap: () {
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const LiveTrackingScreen()));
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C5CE7), Color(0xFF4834D4)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Live Tracking',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFD54F),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'BARU',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF062056),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Pantau posisi dan kecepatan waktu perjalanan kereta secara real-time.',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: Colors.white.withValues(alpha: 0.85),
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6C5CE7).withValues(alpha: 0.30),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        'Buka Live Tracking',
+                      const Text(
+                        'Live Tracking',
                         style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF062056),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
                         ),
                       ),
-                      SizedBox(width: 4),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: 16,
-                        color: Color(0xFF062056),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFD54F),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'BARU',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF062056),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    'Pantau posisi dan kecepatan waktu perjalanan kereta secara real-time.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Colors.white.withValues(alpha: 0.85),
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Buka Live Tracking',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF062056),
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 16,
+                          color: Color(0xFF062056),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(width: 12),
 
-          // Ikon Petir Glowing
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(16),
+            // Ikon Petir Glowing
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.electric_bolt_rounded,
+                color: Colors.white,
+                size: 34,
+              ),
             ),
-            child: const Icon(
-              Icons.electric_bolt_rounded,
-              color: Colors.white,
-              size: 34,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2520,29 +2410,24 @@ class _DashboardScreenState extends State<DashboardScreen>
             children: [
               _buildNavItem(
                 index: 0,
-                icon: Icons.map_rounded,
-                label: 'Live Map',
+                icon: Icons.home_rounded,
+                label: 'Beranda',
               ),
               _buildNavItem(
                 index: 1,
-                icon: Icons.schedule_rounded,
-                label: 'Jadwal',
+                icon: Icons.receipt_long_rounded,
+                label: 'Pesanan',
               ),
               _buildNavItem(
                 index: 2,
-                icon: Icons.favorite_rounded,
-                label: 'Favorit',
+                icon: Icons.confirmation_number_rounded,
+                label: 'Tiket Saya',
+                hasBadge: true,
               ),
               _buildNavItem(
                 index: 3,
-                icon: Icons.confirmation_number_rounded,
-                label: 'Tiket',
-                hasBadge: _activeBookings.isNotEmpty,
-              ),
-              _buildNavItem(
-                index: 4,
                 icon: Icons.person_rounded,
-                label: 'Profil',
+                label: 'Akun',
               ),
             ],
           ),

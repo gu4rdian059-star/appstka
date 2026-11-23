@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'refund_screen.dart';
 import '../services/user_db_service.dart';
+import '../tickets/eticket_boarding_pass_screen.dart';
+import '../tracking/live_tracking_screen.dart';
 
 class OrderDetailScreen extends StatelessWidget {
   final String orderId;
@@ -20,6 +23,7 @@ class OrderDetailScreen extends StatelessWidget {
   final String paymentMethod;
   final String vaNumber;
   final String travelDate;
+  final List<Map<String, String>>? passengers;
   final VoidCallback? onViewTicket;
   final VoidCallback? onPayNow;
 
@@ -41,6 +45,7 @@ class OrderDetailScreen extends StatelessWidget {
     this.paymentMethod = 'BCA Virtual Account',
     this.vaNumber = 'VA-9001842910',
     this.travelDate = 'Jum, 25 Okt 2024',
+    this.passengers,
     this.onViewTicket,
     this.onPayNow,
   });
@@ -67,9 +72,91 @@ class OrderDetailScreen extends StatelessWidget {
       paymentMethod: b.paymentMethod,
       vaNumber: b.vaNumber,
       travelDate: b.travelDate,
+      passengers: b.passengers,
       onViewTicket: onViewTicket,
       onPayNow: onPayNow,
     );
+  }
+
+  static String _getBaseBookingId(String bookingId) {
+    final match = RegExp(r'^(TKA-[A-Za-z0-9]+)-\d+$').firstMatch(bookingId);
+    if (match != null) {
+      return match.group(1)!;
+    }
+    return bookingId;
+  }
+
+  /// Otomatis melacak seluruh data manifest penumpang
+  List<Map<String, String>> _resolveManifest() {
+    if (passengers != null && passengers!.isNotEmpty) {
+      return passengers!;
+    }
+
+    try {
+      final all = UserDatabaseService.getCachedBookings();
+      // 1. Cek apakah booking ini di cache sudah punya manifes penumpang
+      final direct = all.where((b) => b.bookingId == bookingCode).toList();
+      if (direct.isNotEmpty &&
+          direct.first.passengers != null &&
+          direct.first.passengers!.isNotEmpty) {
+        return direct.first.passengers!;
+      }
+
+      // 2. Hanya konsolidasi jika berbagi base booking code yang SAMA PERSIS (misal TKA-123456 dan TKA-123456-2)
+      final baseId = _getBaseBookingId(bookingCode);
+      final siblings = all.where((b) {
+        final otherBase = _getBaseBookingId(b.bookingId);
+        return otherBase == baseId && baseId.isNotEmpty;
+      }).toList();
+
+      if (siblings.length > 1) {
+        siblings.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        return siblings.map((s) => {
+          'name': s.passengerName,
+          'id': s.passengerNik,
+          'seat': s.seatNumber,
+          'type': 'Dewasa (Adult)',
+        }).toList();
+      }
+    } catch (_) {}
+
+    return [
+      {
+        'name': passengerName,
+        'id': passengerNik,
+        'seat': seat,
+        'type': 'Dewasa (Adult)',
+      }
+    ];
+  }
+
+  int _resolveTotalAmount(List<Map<String, String>> manifest) {
+    if (manifest.length <= 1) return totalAmount;
+    try {
+      final all = UserDatabaseService.getCachedBookings();
+      final baseId = _getBaseBookingId(bookingCode);
+      final siblings = all.where((b) {
+        final otherBase = _getBaseBookingId(b.bookingId);
+        return otherBase == baseId && baseId.isNotEmpty;
+      }).toList();
+      if (siblings.length > 1) {
+        final sum =
+            siblings.fold<int>(0, (prev, elem) => prev + elem.totalAmount);
+        if (sum > totalAmount) return sum;
+      }
+    } catch (_) {}
+    return totalAmount;
+  }
+
+  String _resolveSeats(List<Map<String, String>> manifest) {
+    final seatList = manifest
+        .map((p) => p['seat'] ?? '')
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (seatList.isNotEmpty) {
+      return seatList.join(', ');
+    }
+    return seat;
   }
 
   String _formatCurrency(int amount) {
@@ -90,6 +177,10 @@ class OrderDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final manifest = _resolveManifest();
+    final resolvedTotal = _resolveTotalAmount(manifest);
+    final displaySeats = _resolveSeats(manifest);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
@@ -120,7 +211,10 @@ class OrderDetailScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
@@ -128,7 +222,11 @@ class OrderDetailScreen extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0284C7)),
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        size: 14,
+                        color: Color(0xFF0284C7),
+                      ),
                       const SizedBox(width: 5),
                       Text(
                         status,
@@ -161,8 +259,13 @@ class OrderDetailScreen extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.copy_rounded, size: 15, color: Colors.grey),
-                  onPressed: () => _copyToClipboard(context, orderId, 'Nomor Transaksi'),
+                  icon: const Icon(
+                    Icons.copy_rounded,
+                    size: 15,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () =>
+                      _copyToClipboard(context, orderId, 'Nomor Transaksi'),
                 ),
               ],
             ),
@@ -203,16 +306,24 @@ class OrderDetailScreen extends StatelessWidget {
                     ],
                   ),
                   InkWell(
-                    onTap: () => _copyToClipboard(context, bookingCode, 'Kode Booking'),
+                    onTap: () =>
+                        _copyToClipboard(context, bookingCode, 'Kode Booking'),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.copy_rounded, size: 13, color: Colors.white),
+                          Icon(
+                            Icons.copy_rounded,
+                            size: 13,
+                            color: Colors.white,
+                          ),
                           SizedBox(width: 5),
                           Text(
                             'Salin',
@@ -251,7 +362,11 @@ class OrderDetailScreen extends StatelessWidget {
                           color: const Color(0xFF062056),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.train_rounded, color: Colors.white, size: 18),
+                        child: const Icon(
+                          Icons.train_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -268,20 +383,29 @@ class OrderDetailScreen extends StatelessWidget {
                             ),
                             Text(
                               trainClass,
-                              style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: Colors.grey,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
                           'Direct',
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -293,9 +417,21 @@ class OrderDetailScreen extends StatelessWidget {
                     children: [
                       Column(
                         children: [
-                          const Icon(Icons.circle, size: 10, color: Color(0xFF062056)),
-                          Container(width: 2, height: 38, color: Colors.grey.shade300),
-                          const Icon(Icons.circle, size: 10, color: Color(0xFFF26716)),
+                          const Icon(
+                            Icons.circle,
+                            size: 10,
+                            color: Color(0xFF062056),
+                          ),
+                          Container(
+                            width: 2,
+                            height: 38,
+                            color: Colors.grey.shade300,
+                          ),
+                          const Icon(
+                            Icons.circle,
+                            size: 10,
+                            color: Color(0xFFF26716),
+                          ),
                         ],
                       ),
                       const SizedBox(width: 12),
@@ -315,23 +451,44 @@ class OrderDetailScreen extends StatelessWidget {
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade100,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: const Text('Peron 3', style: TextStyle(fontSize: 10.5)),
+                                  child: const Text(
+                                    'Peron 3',
+                                    style: TextStyle(fontSize: 10.5),
+                                  ),
                                 ),
                               ],
                             ),
                             Text(
                               origin,
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                            const Text('Jum, 25 Okt 2024', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                            const Text(
+                              'Jum, 25 Okt 2024',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.grey,
+                              ),
+                            ),
 
                             const SizedBox(height: 10),
-                            Text('Estimasi 8j 05m', style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500)),
+                            Text(
+                              'Estimasi 8j 05m',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
                             const SizedBox(height: 10),
 
                             Row(
@@ -346,20 +503,35 @@ class OrderDetailScreen extends StatelessWidget {
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade100,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: const Text('Peron 1', style: TextStyle(fontSize: 10.5)),
+                                  child: const Text(
+                                    'Peron 1',
+                                    style: TextStyle(fontSize: 10.5),
+                                  ),
                                 ),
                               ],
                             ),
                             Text(
                               dest,
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                            const Text('Jum, 25 Okt 2024', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                            const Text(
+                              'Jum, 25 Okt 2024',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.grey,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -368,11 +540,20 @@ class OrderDetailScreen extends StatelessWidget {
                   const Divider(height: 24),
                   Row(
                     children: [
-                      const Icon(Icons.event_seat_rounded, size: 18, color: Color(0xFF062056)),
+                      const Icon(
+                        Icons.event_seat_rounded,
+                        size: 18,
+                        color: Color(0xFF062056),
+                      ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Posisi Tempat Duduk: $seat',
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                      Expanded(
+                        child: Text(
+                          'Posisi Tempat Duduk: $displaySeats',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -393,11 +574,15 @@ class OrderDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.person_rounded, size: 18, color: Color(0xFF062056)),
-                      SizedBox(width: 8),
-                      Text(
+                      const Icon(
+                        Icons.person_rounded,
+                        size: 18,
+                        color: Color(0xFF062056),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
                         'DATA PENUMPANG',
                         style: TextStyle(
                           fontSize: 11,
@@ -406,53 +591,115 @@ class OrderDetailScreen extends StatelessWidget {
                           letterSpacing: 0.8,
                         ),
                       ),
-                      Spacer(),
-                      Text('1 Penumpang', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      const Spacer(),
+                      Text(
+                        '${manifest.length} Penumpang',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
                     ],
                   ),
                   const Divider(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              passengerName,
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF062056),
+                  for (int i = 0; i < manifest.length; i++) ...[
+                    if (i > 0) const Divider(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE8F1FC),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Text(
+                                      'Penumpang ${i + 1}',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0256B8),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      manifest[i]['name'] ??
+                                          'Penumpang ${i + 1}',
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF062056),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Dewasa (Adult) • No. Identitas: $passengerNik',
-                              style: const TextStyle(fontSize: 11.5, color: Colors.grey),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE8F5E9),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'Terverifikasi',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2E7D32),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${manifest[i]['type'] ?? 'Dewasa (Adult)'} • No. Identitas: ${manifest[i]['id'] ?? passengerNik}',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: Colors.grey,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (manifest[i]['seat'] != null &&
+                                  manifest[i]['seat']!.isNotEmpty) ...[
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.event_seat_rounded,
+                                      size: 13,
+                                      color: Color(0xFFF26716),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Kursi: ${manifest[i]['seat']}',
+                                      style: const TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFF26716),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Terverifikasi',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2E7D32),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -496,32 +743,69 @@ class OrderDetailScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Metode Pembayaran', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      Text(paymentMethod, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Metode Pembayaran',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      Text(
+                        paymentMethod,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('No. Referensi / VA', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      Text(vaNumber, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'No. Referensi / VA',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      Text(
+                        vaNumber,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Tarif Tiket (1 Penumpang)', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      Text(_formatCurrency(totalAmount), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      Text(
+                        'Tarif Tiket (${manifest.length} Penumpang)',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      Text(
+                        _formatCurrency(resolvedTotal),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Biaya Layanan & Penanganan', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      Text('Gratis', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF10B981))),
+                      Text(
+                        'Biaya Layanan & Penanganan',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      Text(
+                        'Gratis',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF10B981),
+                        ),
+                      ),
                     ],
                   ),
                   const Divider(height: 18),
@@ -539,7 +823,7 @@ class OrderDetailScreen extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            _formatCurrency(totalAmount),
+                            _formatCurrency(resolvedTotal),
                             style: const TextStyle(
                               fontSize: 15.5,
                               fontWeight: FontWeight.w900,
@@ -548,28 +832,31 @@ class OrderDetailScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: status == 'Menunggu Pembayaran'
                                   ? const Color(0xFFFFF7ED)
                                   : status == 'Dibatalkan'
-                                      ? const Color(0xFFFEE2E2)
-                                      : const Color(0xFFE8F5E9),
+                                  ? const Color(0xFFFEE2E2)
+                                  : const Color(0xFFE8F5E9),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               status == 'Menunggu Pembayaran'
                                   ? 'Menunggu Bayar'
                                   : status == 'Dibatalkan'
-                                      ? 'Dibatalkan'
-                                      : 'Lunas',
+                                  ? 'Dibatalkan'
+                                  : 'Lunas',
                               style: TextStyle(
                                 fontSize: 10,
                                 color: status == 'Menunggu Pembayaran'
                                     ? const Color(0xFFC2410C)
                                     : status == 'Dibatalkan'
-                                        ? const Color(0xFFDC2626)
-                                        : const Color(0xFF2E7D32),
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF2E7D32),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -595,7 +882,11 @@ class OrderDetailScreen extends StatelessWidget {
               child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline_rounded, color: Color(0xFF16A34A), size: 18),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: Color(0xFF16A34A),
+                    size: 18,
+                  ),
                   SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -612,7 +903,11 @@ class OrderDetailScreen extends StatelessWidget {
                         SizedBox(height: 3),
                         Text(
                           'Pintu keberangkatan (boarding gate) dibuka 45 menit sebelum jadwal keberangkatan kereta. Wajib menunjukkan kartu identitas asli (e-KTP/Paspor) yang masih berlaku saat proses boarding pass.',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF166534), height: 1.35),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF166534),
+                            height: 1.35,
+                          ),
                         ),
                       ],
                     ),
@@ -632,7 +927,9 @@ class OrderDetailScreen extends StatelessWidget {
                   backgroundColor: status == 'Menunggu Pembayaran'
                       ? const Color(0xFFF26716)
                       : const Color(0xFF062056),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: () {
                   if (status == 'Menunggu Pembayaran') {
@@ -640,11 +937,49 @@ class OrderDetailScreen extends StatelessWidget {
                       onPayNow!();
                     }
                   } else {
-                    if (onViewTicket != null) {
-                      onViewTicket!();
-                    } else {
-                      Navigator.of(context).maybePop();
-                    }
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ETicketBoardingPassScreen(
+                          booking: BookingModel(
+                            bookingId: bookingCode,
+                            passengerName:
+                                manifest.first['name'] ?? passengerName,
+                            passengerEmail: 'user@tka.co.id',
+                            passengerPhone: '+62 857-4849-4469',
+                            passengerNik:
+                                manifest.first['id'] ?? passengerNik,
+                            trainName: trainName,
+                            trainClass: trainClass,
+                            originCode: origin.contains('(')
+                                ? origin.split('(').last.replaceAll(')', '')
+                                : 'BD',
+                            originName: origin,
+                            originCity: origin,
+                            destCode: dest.contains('(')
+                                ? dest.split('(').last.replaceAll(')', '')
+                                : 'BOO',
+                            destName: dest,
+                            destCity: dest,
+                            travelDate: travelDate,
+                            departureTime: departureTime,
+                            arrivalTime: arrivalTime,
+                            seatNumber: displaySeats,
+                            totalAmount: resolvedTotal,
+                            status: status,
+                            paymentMethod: paymentMethod,
+                            vaNumber: vaNumber,
+                            createdAt: DateTime.now(),
+                            passengers: manifest,
+                          ),
+                          passengerName:
+                              manifest.first['name'] ?? passengerName,
+                          passengerNik:
+                              manifest.first['id'] ?? passengerNik,
+                          seatNumber: manifest.first['seat'] ?? seat,
+                          passengers: manifest,
+                        ),
+                      ),
+                    );
                   }
                 },
                 child: Text(
@@ -660,6 +995,48 @@ class OrderDetailScreen extends StatelessWidget {
               ),
             ),
 
+            if (status != 'Menunggu Pembayaran') ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0256B8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => LiveTrackingScreen(
+                          trainName: trainName,
+                          origin: origin,
+                          destination: dest,
+                          departureTime: departureTime,
+                          arrivalTime: arrivalTime,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.my_location_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    'Lacak Kereta Langsung (Live)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 10),
 
             SizedBox(
@@ -668,7 +1045,9 @@ class OrderDetailScreen extends StatelessWidget {
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFF062056)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -727,4 +1106,3 @@ class OrderDetailScreen extends StatelessWidget {
     );
   }
 }
-

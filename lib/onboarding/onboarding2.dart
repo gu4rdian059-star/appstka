@@ -147,21 +147,53 @@ class _SearchCards extends StatelessWidget {
     final groupBob = math.sin(a * math.pi * 2 * 5) * 2.5;
 
     // Kartu rute
-    final routeP = const Interval(0.0, 0.4, curve: Curves.easeOutBack).transform(t);
+    final routeP = const Interval(
+      0.0,
+      0.4,
+      curve: Curves.easeOutBack,
+    ).transform(t);
     final routeO = const Interval(0.0, 0.25).transform(t);
-    final lineP = const Interval(0.25, 0.55, curve: Curves.easeInOut).transform(t);
+    final lineP = const Interval(
+      0.25,
+      0.55,
+      curve: Curves.easeInOut,
+    ).transform(t);
 
     // Tombol cari
-    final fabP = const Interval(0.35, 0.6, curve: Curves.elasticOut).transform(t);
+    final fabP = const Interval(
+      0.35,
+      0.6,
+      curve: Curves.elasticOut,
+    ).transform(t);
 
     // Jadwal
-    final cardAP = const Interval(0.45, 0.7, curve: Curves.easeOutCubic).transform(t);
-    final cardBP = const Interval(0.55, 0.8, curve: Curves.easeOutCubic).transform(t);
-    final selectP = const Interval(0.8, 0.95, curve: Curves.easeOut).transform(t);
-    final checkP = const Interval(0.82, 1.0, curve: Curves.elasticOut).transform(t);
+    final cardAP = const Interval(
+      0.45,
+      0.7,
+      curve: Curves.easeOutCubic,
+    ).transform(t);
+    final cardBP = const Interval(
+      0.55,
+      0.8,
+      curve: Curves.easeOutCubic,
+    ).transform(t);
+    final selectP = const Interval(
+      0.8,
+      0.95,
+      curve: Curves.easeOut,
+    ).transform(t);
+    final checkP = const Interval(
+      0.82,
+      1.0,
+      curve: Curves.elasticOut,
+    ).transform(t);
 
     // Chip kursi
-    final chipP = const Interval(0.68, 0.9, curve: Curves.easeOutBack).transform(t);
+    final chipP = const Interval(
+      0.68,
+      0.9,
+      curve: Curves.easeOutBack,
+    ).transform(t);
     final chipBob = math.sin(a * math.pi * 2 * 8) * 3;
 
     return SizedBox(
@@ -354,10 +386,7 @@ BoxDecoration _cardDecoration({Color? borderColor, double glow = 0}) {
   return BoxDecoration(
     color: Colors.white,
     borderRadius: BorderRadius.circular(18),
-    border: Border.all(
-      color: borderColor ?? Colors.transparent,
-      width: 1.6,
-    ),
+    border: Border.all(color: borderColor ?? Colors.transparent, width: 1.6),
     boxShadow: [
       BoxShadow(
         color: TkaColors.navy.withValues(alpha: 0.13),
@@ -422,7 +451,10 @@ class _RouteCard extends StatelessWidget {
           ),
           const Row(
             children: [
-              _InfoPill(icon: Icons.calendar_month_rounded, text: 'Sen, 18 Nov'),
+              _InfoPill(
+                icon: Icons.calendar_month_rounded,
+                text: 'Sen, 18 Nov',
+              ),
               SizedBox(width: 8),
               _InfoPill(icon: Icons.person_rounded, text: '1 Dewasa'),
             ],
@@ -454,7 +486,10 @@ class _CityLabel extends StatelessWidget {
           : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: TkaColors.grey)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: TkaColors.grey),
+        ),
         const SizedBox(height: 2),
         Text(
           city,
@@ -692,11 +727,7 @@ class _RouteLinePainter extends CustomPainter {
       );
     } else {
       // Ujung garis yang sedang tergambar
-      canvas.drawCircle(
-        Offset(curX, y),
-        3,
-        Paint()..color = TkaColors.orange,
-      );
+      canvas.drawCircle(Offset(curX, y), 3, Paint()..color = TkaColors.orange);
     }
   }
 
@@ -766,7 +797,10 @@ class _Scene2Painter extends CustomPainter {
       _img(856, 510).dy,
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(signRect.inflate(4 * _s), Radius.circular(10 * _s)),
+      RRect.fromRectAndRadius(
+        signRect.inflate(4 * _s),
+        Radius.circular(10 * _s),
+      ),
       Paint()
         ..color = const Color(0xFF6FA8FF).withValues(alpha: 0.25 * signPulse)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
@@ -796,4 +830,3 @@ class _Scene2Painter extends CustomPainter {
   bool shouldRepaint(covariant _Scene2Painter old) =>
       old.intro != intro || old.ambient != ambient || old.rect != rect;
 }
-

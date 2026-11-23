@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/user_db_service.dart';
 
 class RefundScreen extends StatefulWidget {
@@ -37,7 +38,9 @@ class _RefundScreenState extends State<RefundScreen> {
     if (!_agreed) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Silakan setujui ketentuan pembatalan terlebih dahulu.'),
+          content: Text(
+            'Silakan setujui ketentuan pembatalan terlebih dahulu.',
+          ),
           backgroundColor: Color(0xFFF26716),
           behavior: SnackBarBehavior.floating,
         ),
@@ -58,10 +61,16 @@ class _RefundScreenState extends State<RefundScreen> {
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const Row(
             children: [
-              Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 28),
+              Icon(
+                Icons.check_circle_rounded,
+                color: Color(0xFF10B981),
+                size: 28,
+              ),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -128,7 +137,10 @@ class _RefundScreenState extends State<RefundScreen> {
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline_rounded, color: Color(0xFF062056)),
+            icon: const Icon(
+              Icons.help_outline_rounded,
+              color: Color(0xFF062056),
+            ),
             onPressed: () {},
           ),
         ],
@@ -148,7 +160,11 @@ class _RefundScreenState extends State<RefundScreen> {
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.info_outline_rounded, color: Color(0xFF062056), size: 18),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: Color(0xFF062056),
+                    size: 18,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Tahap 1 dari 2: Verifikasi Pengajuan Refund',
@@ -188,7 +204,10 @@ class _RefundScreenState extends State<RefundScreen> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFF062056),
                           borderRadius: BorderRadius.circular(8),
@@ -221,7 +240,11 @@ class _RefundScreenState extends State<RefundScreen> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Icon(Icons.train_rounded, size: 16, color: Color(0xFF062056)),
+                      const Icon(
+                        Icons.train_rounded,
+                        size: 16,
+                        color: Color(0xFF062056),
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -241,7 +264,10 @@ class _RefundScreenState extends State<RefundScreen> {
                     children: [
                       Text(
                         'Penumpang: ${widget.passengerName}',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                       ),
                       Text(
                         _formatCurrency(widget.originalPrice),
@@ -272,7 +298,11 @@ class _RefundScreenState extends State<RefundScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.gavel_rounded, size: 18, color: Color(0xFFD97706)),
+                      Icon(
+                        Icons.gavel_rounded,
+                        size: 18,
+                        color: Color(0xFFD97706),
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Ketentuan & Regulasi Operasional TKA',
@@ -287,12 +317,20 @@ class _RefundScreenState extends State<RefundScreen> {
                   SizedBox(height: 8),
                   Text(
                     'Pembatalan tiket tunduk penuh pada regulasi operasional TKA dan aturan operator perkeretaapian. Permohonan pembatalan dapat diajukan maksimal 2 jam sebelum jadwal keberangkatan kereta api.',
-                    style: TextStyle(fontSize: 11.5, color: Color(0xFF92400E), height: 1.4),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF92400E),
+                      height: 1.4,
+                    ),
                   ),
                   SizedBox(height: 8),
                   Text(
                     'Penting: Pengembalian dana (refund) diproses melalui verifikasi manual dan sistem kliring perbankan mitra dalam 14–30 hari kerja sesuai metode pembayaran asal.',
-                    style: TextStyle(fontSize: 11.5, color: Color(0xFF92400E), height: 1.4),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF92400E),
+                      height: 1.4,
+                    ),
                   ),
                 ],
               ),
@@ -329,7 +367,10 @@ class _RefundScreenState extends State<RefundScreen> {
                       ),
                       Text(
                         _formatCurrency(widget.originalPrice),
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
@@ -339,7 +380,10 @@ class _RefundScreenState extends State<RefundScreen> {
                     children: [
                       const Text(
                         'Bea Pembatalan Resmi (25%)',
-                        style: TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFDC2626),
+                        ),
                       ),
                       Text(
                         '-${_formatCurrency(fee)}',
@@ -382,12 +426,19 @@ class _RefundScreenState extends State<RefundScreen> {
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.account_balance_rounded, size: 18, color: Color(0xFF062056)),
+                        Icon(
+                          Icons.account_balance_rounded,
+                          size: 18,
+                          color: Color(0xFF062056),
+                        ),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Tujuan Rekening: BCA 1234567890 a/n Mukhammad Safid M',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
@@ -457,7 +508,11 @@ class _RefundScreenState extends State<RefundScreen> {
                 const Expanded(
                   child: Text(
                     'Saya telah membaca, memahami, dan menyetujui seluruh ketentuan pemotongan bea administrasi 25% serta estimasi jangka waktu kliring perbankan 14–30 hari kerja sesuai regulasi resmi perkeretaapian TKA.',
-                    style: TextStyle(fontSize: 11, color: Colors.grey, height: 1.35),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey,
+                      height: 1.35,
+                    ),
                   ),
                 ),
               ],
@@ -472,14 +527,19 @@ class _RefundScreenState extends State<RefundScreen> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF062056),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: _isSubmitting ? null : _submitRefund,
                 child: _isSubmitting
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text(
                         'Ajukan Pembatalan Tiket',
@@ -515,4 +575,3 @@ class _RefundScreenState extends State<RefundScreen> {
     );
   }
 }
-

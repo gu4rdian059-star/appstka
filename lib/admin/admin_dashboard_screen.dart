@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../login/login_screen.dart';
 import '../services/admin_service.dart';
 import '../services/session_service.dart';
@@ -24,7 +26,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   late final AnimationController _animController;
   late final AnimationController _trainTrackController;
 
-  int _activeTabIndex = 0; // 0: Ringkasan, 1: Jadwal Kereta, 2: Transaksi, 3: Kelola Admin
+  int _activeTabIndex =
+      0; // 0: Ringkasan, 1: Jadwal Kereta, 2: Transaksi, 3: Kelola Admin
 
   // Unified Request Pattern States (supabase-patterns/SKILL.md)
   bool _isLoading = true;
@@ -39,7 +42,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   // Filter & Search States
   String _scheduleFilter = 'Semua';
   String _bookingFilter = 'Semua';
-  final TextEditingController _bookingSearchController = TextEditingController();
+  final TextEditingController _bookingSearchController =
+      TextEditingController();
 
   // Supabase live status
   bool _isSupabaseConnected = true;
@@ -55,33 +59,129 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   // Weekly Trend Data for Interactive Spline Chart
   final List<Map<String, dynamic>> _weeklyData = const [
-    {'day': 'Sen', 'fullDay': 'Senin, 11 Nov', 'revenue': 38500000.0, 'tickets': 1120, 'growth': '+8.4%'},
-    {'day': 'Sel', 'fullDay': 'Selasa, 12 Nov', 'revenue': 41200000.0, 'tickets': 1210, 'growth': '+11.2%'},
-    {'day': 'Rab', 'fullDay': 'Rabu, 13 Nov', 'revenue': 39800000.0, 'tickets': 1180, 'growth': '+6.5%'},
-    {'day': 'Kam', 'fullDay': 'Kamis, 14 Nov', 'revenue': 45600000.0, 'tickets': 1340, 'growth': '+14.1%'},
-    {'day': 'Jum', 'fullDay': 'Jumat, 15 Nov', 'revenue': 54800000.0, 'tickets': 1620, 'growth': '+21.5%'},
-    {'day': 'Sab', 'fullDay': 'Sabtu, 16 Nov', 'revenue': 58200000.0, 'tickets': 1740, 'growth': '+24.8%'},
-    {'day': 'Min', 'fullDay': 'Minggu, 17 Nov', 'revenue': 51000000.0, 'tickets': 1530, 'growth': '+16.7%'},
+    {
+      'day': 'Sen',
+      'fullDay': 'Senin, 11 Nov',
+      'revenue': 38500000.0,
+      'tickets': 1120,
+      'growth': '+8.4%',
+    },
+    {
+      'day': 'Sel',
+      'fullDay': 'Selasa, 12 Nov',
+      'revenue': 41200000.0,
+      'tickets': 1210,
+      'growth': '+11.2%',
+    },
+    {
+      'day': 'Rab',
+      'fullDay': 'Rabu, 13 Nov',
+      'revenue': 39800000.0,
+      'tickets': 1180,
+      'growth': '+6.5%',
+    },
+    {
+      'day': 'Kam',
+      'fullDay': 'Kamis, 14 Nov',
+      'revenue': 45600000.0,
+      'tickets': 1340,
+      'growth': '+14.1%',
+    },
+    {
+      'day': 'Jum',
+      'fullDay': 'Jumat, 15 Nov',
+      'revenue': 54800000.0,
+      'tickets': 1620,
+      'growth': '+21.5%',
+    },
+    {
+      'day': 'Sab',
+      'fullDay': 'Sabtu, 16 Nov',
+      'revenue': 58200000.0,
+      'tickets': 1740,
+      'growth': '+24.8%',
+    },
+    {
+      'day': 'Min',
+      'fullDay': 'Minggu, 17 Nov',
+      'revenue': 51000000.0,
+      'tickets': 1530,
+      'growth': '+16.7%',
+    },
   ];
 
   // Ticket Class Distribution Data for Donut Chart
   final List<Map<String, dynamic>> _ticketClassData = const [
-    {'name': 'Eksekutif', 'pct': 0.45, 'tickets': 642, 'revenue': 'Rp 24.2 Jt', 'color': Color(0xFF062056)},
-    {'name': 'Kereta Cepat', 'pct': 0.30, 'tickets': 428, 'revenue': 'Rp 16.5 Jt', 'color': Color(0xFFF26716)},
-    {'name': 'Luxury Sleeper', 'pct': 0.15, 'tickets': 214, 'revenue': 'Rp 8.1 Jt', 'color': Color(0xFFF59E0B)},
-    {'name': 'Bisnis & Lainnya', 'pct': 0.10, 'tickets': 144, 'revenue': 'Rp 4.9 Jt', 'color': Color(0xFF10B981)},
+    {
+      'name': 'Eksekutif',
+      'pct': 0.45,
+      'tickets': 642,
+      'revenue': 'Rp 24.2 Jt',
+      'color': Color(0xFF062056),
+    },
+    {
+      'name': 'Kereta Cepat',
+      'pct': 0.30,
+      'tickets': 428,
+      'revenue': 'Rp 16.5 Jt',
+      'color': Color(0xFFF26716),
+    },
+    {
+      'name': 'Luxury Sleeper',
+      'pct': 0.15,
+      'tickets': 214,
+      'revenue': 'Rp 8.1 Jt',
+      'color': Color(0xFFF59E0B),
+    },
+    {
+      'name': 'Bisnis & Lainnya',
+      'pct': 0.10,
+      'tickets': 144,
+      'revenue': 'Rp 4.9 Jt',
+      'color': Color(0xFF10B981),
+    },
   ];
 
   // Hourly Departure Load for Bar Chart
   final List<Map<String, dynamic>> _hourlyLoad = const [
-    {'time': '06:00', 'load': 0.65, 'passengers': 364, 'note': 'Awal Dinas Pagi'},
-    {'time': '08:00', 'load': 0.95, 'passengers': 532, 'note': 'Jam Sibuk Pagi (Puncak)'},
-    {'time': '10:00', 'load': 0.70, 'passengers': 392, 'note': 'Perjalanan Bisnis'},
+    {
+      'time': '06:00',
+      'load': 0.65,
+      'passengers': 364,
+      'note': 'Awal Dinas Pagi',
+    },
+    {
+      'time': '08:00',
+      'load': 0.95,
+      'passengers': 532,
+      'note': 'Jam Sibuk Pagi (Puncak)',
+    },
+    {
+      'time': '10:00',
+      'load': 0.70,
+      'passengers': 392,
+      'note': 'Perjalanan Bisnis',
+    },
     {'time': '12:00', 'load': 0.55, 'passengers': 308, 'note': 'Reguler Siang'},
     {'time': '14:00', 'load': 0.60, 'passengers': 336, 'note': 'Reguler Siang'},
-    {'time': '16:00', 'load': 0.88, 'passengers': 492, 'note': 'Arus Balik Sore'},
-    {'time': '18:00', 'load': 0.92, 'passengers': 515, 'note': 'Jam Sibuk Sore (Puncak)'},
-    {'time': '20:00', 'load': 0.78, 'passengers': 436, 'note': 'Perjalanan Malam'},
+    {
+      'time': '16:00',
+      'load': 0.88,
+      'passengers': 492,
+      'note': 'Arus Balik Sore',
+    },
+    {
+      'time': '18:00',
+      'load': 0.92,
+      'passengers': 515,
+      'note': 'Jam Sibuk Sore (Puncak)',
+    },
+    {
+      'time': '20:00',
+      'load': 0.78,
+      'passengers': 436,
+      'note': 'Perjalanan Malam',
+    },
   ];
 
   @override
@@ -126,7 +226,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     try {
       final conn = await AdminService.checkSupabaseStatus();
       final metrics = await AdminService.getOverviewMetrics();
-      final schedules = await AdminService.getTrainSchedules(statusFilter: _scheduleFilter);
+      final schedules = await AdminService.getTrainSchedules(
+        statusFilter: _scheduleFilter,
+      );
       final bookings = await AdminService.getBookings(
         searchQuery: _bookingSearchController.text,
         statusFilter: _bookingFilter,
@@ -169,7 +271,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   Future<void> _fetchSchedules() async {
-    final schedules = await AdminService.getTrainSchedules(statusFilter: _scheduleFilter);
+    final schedules = await AdminService.getTrainSchedules(
+      statusFilter: _scheduleFilter,
+    );
     if (mounted) {
       setState(() {
         _schedules = schedules;
@@ -192,12 +296,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
               ),
             ),
           ],
         ),
-        backgroundColor: isError ? const Color(0xFFE53935) : const Color(0xFF10B981),
+        backgroundColor: isError
+            ? const Color(0xFFE53935)
+            : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -239,7 +348,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 color: Color(0xFFFEE2E2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 28),
+              child: const Icon(
+                Icons.logout_rounded,
+                color: Color(0xFFDC2626),
+                size: 28,
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -269,7 +382,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       side: BorderSide(color: Colors.grey.shade300),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: const Text(
                       'Batal',
@@ -288,7 +403,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       await SessionService.clearSession();
                       if (!mounted) return;
                       Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const LoginScreen(alreadyAnimated: true)),
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const LoginScreen(alreadyAnimated: true),
+                        ),
                         (route) => false,
                       );
                     },
@@ -297,7 +415,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: const Text(
                       'Ya, Keluar',
@@ -362,7 +482,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF26716).withValues(alpha: 0.12),
+                              color: const Color(0xFFF26716)
+                                  .withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
@@ -429,10 +550,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         controller: nameCtrl,
                         decoration: InputDecoration(
                           hintText: 'Contoh: Dimas Prasetyo, S.Kom',
-                          prefixIcon: const Icon(Icons.person_outline, size: 20),
+                          prefixIcon: const Icon(
+                            Icons.person_outline,
+                            size: 20,
+                          ),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: Colors.grey.shade300),
@@ -467,10 +594,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           hintText: 'nama.admin@tka.id',
-                          prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                          prefixIcon: const Icon(
+                            Icons.email_outlined,
+                            size: 20,
+                          ),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: Colors.grey.shade300),
@@ -481,7 +614,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           ),
                         ),
                         validator: (v) {
-                          if (v == null || !v.contains('@') || !v.contains('.')) {
+                          if (v == null ||
+                              !v.contains('@') ||
+                              !v.contains('.')) {
                             return 'Masukkan email valid (@tka.id)';
                           }
                           return null;
@@ -508,14 +643,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           prefixIcon: const Icon(Icons.lock_outline, size: 20),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              obscurePass ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              obscurePass
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
                               size: 20,
                             ),
-                            onPressed: () => setModalState(() => obscurePass = !obscurePass),
+                            onPressed: () =>
+                                setModalState(() => obscurePass = !obscurePass),
                           ),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: Colors.grey.shade300),
@@ -557,10 +698,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             value: selectedRole,
                             isExpanded: true,
                             items: const [
-                              DropdownMenuItem(value: 'Super Admin', child: Text('Super Admin (Akses Penuh)')),
-                              DropdownMenuItem(value: 'Operator Perjalanan', child: Text('Operator Perjalanan (Armada & Jadwal)')),
-                              DropdownMenuItem(value: 'Petugas Stasiun', child: Text('Petugas Stasiun (Check-in & Tiket)')),
-                              DropdownMenuItem(value: 'Finance & Audit', child: Text('Finance & Audit (Transaksi & Laporan)')),
+                              DropdownMenuItem(
+                                value: 'Super Admin',
+                                child: Text('Super Admin (Akses Penuh)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Operator Perjalanan',
+                                child: Text(
+                                  'Operator Perjalanan (Armada & Jadwal)',
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Petugas Stasiun',
+                                child: Text(
+                                  'Petugas Stasiun (Check-in & Tiket)',
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Finance & Audit',
+                                child: Text(
+                                  'Finance & Audit (Transaksi & Laporan)',
+                                ),
+                              ),
                             ],
                             onChanged: (val) {
                               if (val != null) {
@@ -584,12 +743,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                   if (!formKey.currentState!.validate()) return;
                                   setModalState(() => isSubmitting = true);
 
-                                  final res = await AdminService.createAdminAccount(
-                                    email: emailCtrl.text,
-                                    password: passCtrl.text,
-                                    fullName: nameCtrl.text,
-                                    role: selectedRole,
-                                  );
+                                  final res =
+                                      await AdminService.createAdminAccount(
+                                        email: emailCtrl.text,
+                                        password: passCtrl.text,
+                                        fullName: nameCtrl.text,
+                                        role: selectedRole,
+                                      );
 
                                   setModalState(() => isSubmitting = false);
                                   if (ctx.mounted) {
@@ -600,20 +760,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                     _showNotification(res.message);
                                     _loadAllData(showIndicator: false);
                                   } else {
-                                    _showNotification(res.message, isError: true);
+                                    _showNotification(
+                                      res.message,
+                                      isError: true,
+                                    );
                                   }
                                 },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF062056),
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
                           child: isSubmitting
                               ? const SizedBox(
                                   width: 22,
                                   height: 22,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -622,7 +790,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                     SizedBox(width: 8),
                                     Text(
                                       'Simpan & Daftarkan ke Supabase',
-                                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -683,7 +854,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       const SizedBox(height: 2),
                       Text(
                         'Dibuat pada: ${_formatDateTime(booking.createdAt)}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ],
                   ),
@@ -705,19 +879,48 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               ),
               child: Column(
                 children: [
-                  _buildDetailRow(Icons.person_outline, 'Nama Penumpang', booking.passengerName),
+                  _buildDetailRow(
+                    Icons.person_outline,
+                    'Nama Penumpang',
+                    booking.passengerName,
+                  ),
                   const SizedBox(height: 10),
-                  _buildDetailRow(Icons.email_outlined, 'Email', booking.passengerEmail),
+                  _buildDetailRow(
+                    Icons.email_outlined,
+                    'Email',
+                    booking.passengerEmail,
+                  ),
                   const SizedBox(height: 10),
-                  _buildDetailRow(Icons.phone_outlined, 'No. Handphone', booking.passengerPhone),
+                  _buildDetailRow(
+                    Icons.phone_outlined,
+                    'No. Handphone',
+                    booking.passengerPhone,
+                  ),
                   const SizedBox(height: 10),
-                  _buildDetailRow(Icons.train_outlined, 'Kereta & Rute', '${booking.trainName} (${booking.route})'),
+                  _buildDetailRow(
+                    Icons.train_outlined,
+                    'Kereta & Rute',
+                    '${booking.trainName} (${booking.route})',
+                  ),
                   const SizedBox(height: 10),
-                  _buildDetailRow(Icons.airline_seat_recline_extra_outlined, 'Tempat Duduk', '${booking.seatNumber} • ${booking.wagonClass}'),
+                  _buildDetailRow(
+                    Icons.airline_seat_recline_extra_outlined,
+                    'Tempat Duduk',
+                    '${booking.seatNumber} • ${booking.wagonClass}',
+                  ),
                   const SizedBox(height: 10),
-                  _buildDetailRow(Icons.payment_outlined, 'Metode Bayar', booking.paymentMethod),
+                  _buildDetailRow(
+                    Icons.payment_outlined,
+                    'Metode Bayar',
+                    booking.paymentMethod,
+                  ),
                   const SizedBox(height: 10),
-                  _buildDetailRow(Icons.monetization_on_outlined, 'Total Tarif', 'Rp ${_formatCurrency(booking.amount)}', isBold: true),
+                  _buildDetailRow(
+                    Icons.monetization_on_outlined,
+                    'Total Tarif',
+                    'Rp ${_formatCurrency(booking.amount)}',
+                    isBold: true,
+                  ),
                 ],
               ),
             ),
@@ -737,18 +940,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               bookingId: booking.bookingId,
                               newStatus: 'Refund',
                             );
-                            _showNotification('Tiket ${booking.bookingId} berhasil diproses Refund.');
+                            _showNotification(
+                              'Tiket ${booking.bookingId} berhasil diproses Refund.',
+                            );
                             _fetchBookings();
                           },
-                    icon: const Icon(Icons.currency_exchange_rounded, size: 18, color: Color(0xFFEF4444)),
+                    icon: const Icon(
+                      Icons.currency_exchange_rounded,
+                      size: 18,
+                      color: Color(0xFFEF4444),
+                    ),
                     label: const Text(
                       'Proses Refund',
-                      style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFEF4444)),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFEF4444),
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       side: const BorderSide(color: Color(0xFFEF4444)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
@@ -763,7 +977,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               bookingId: booking.bookingId,
                               newStatus: 'Lunas',
                             );
-                            _showNotification('Pembayaran tiket ${booking.bookingId} telah diverifikasi Lunas.');
+                            _showNotification(
+                              'Pembayaran tiket ${booking.bookingId} telah diverifikasi Lunas.',
+                            );
                             _fetchBookings();
                           },
                     icon: const Icon(Icons.check_circle_outline, size: 18),
@@ -776,7 +992,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
@@ -816,15 +1034,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 Expanded(
                   child: _isLoading
                       ? const Center(
-                          child: CircularProgressIndicator(color: Color(0xFF062056)),
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF062056),
+                          ),
                         )
                       : _errorMessage != null
-                          ? _buildErrorView()
-                          : RefreshIndicator(
-                              onRefresh: () => _loadAllData(showIndicator: false),
-                              color: const Color(0xFFF26716),
-                              child: _buildActiveTabContent(),
-                            ),
+                      ? _buildErrorView()
+                      : RefreshIndicator(
+                          onRefresh: () => _loadAllData(showIndicator: false),
+                          color: const Color(0xFFF26716),
+                          child: _buildActiveTabContent(),
+                        ),
                 ),
               ],
             ),
@@ -850,11 +1070,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF041433),
-            Color(0xFF062056),
-            Color(0xFF092C78),
-          ],
+          colors: [Color(0xFF041433), Color(0xFF062056), Color(0xFF092C78)],
         ),
         boxShadow: [
           BoxShadow(
@@ -878,7 +1094,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     colors: [Color(0xFFF26716), Color(0xFFFF944D)],
                   ),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.4),
+                    width: 2,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFFF26716).withValues(alpha: 0.35),
@@ -917,12 +1136,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: (_isSupabaseConnected ? const Color(0xFF10B981) : const Color(0xFFF59E0B)).withValues(alpha: 0.2),
+                            color:
+                                (_isSupabaseConnected
+                                        ? const Color(0xFF10B981)
+                                        : const Color(0xFFF59E0B))
+                                    .withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: (_isSupabaseConnected ? const Color(0xFF10B981) : const Color(0xFFF59E0B)).withValues(alpha: 0.6),
+                              color:
+                                  (_isSupabaseConnected
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFFF59E0B))
+                                      .withValues(alpha: 0.6),
                               width: 0.8,
                             ),
                           ),
@@ -933,17 +1163,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                 width: 5,
                                 height: 5,
                                 decoration: BoxDecoration(
-                                  color: _isSupabaseConnected ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                                  color: _isSupabaseConnected
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFF59E0B),
                                   shape: BoxShape.circle,
                                 ),
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                _isSupabaseConnected ? 'Supabase Live' : 'Offline Cache',
+                                _isSupabaseConnected
+                                    ? 'Supabase Live'
+                                    : 'Offline Cache',
                                 style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w800,
-                                  color: _isSupabaseConnected ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                                  color: _isSupabaseConnected
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFF59E0B),
                                 ),
                               ),
                             ],
@@ -979,14 +1215,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
-                    : const Icon(Icons.sync_rounded, color: Colors.white, size: 22),
+                    : const Icon(
+                        Icons.sync_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
               ),
               IconButton(
                 onPressed: _showLogoutDialog,
                 tooltip: 'Keluar',
-                icon: const Icon(Icons.logout_rounded, color: Color(0xFFFF8585), size: 22),
+                icon: const Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFFFF8585),
+                  size: 22,
+                ),
               ),
             ],
           ),
@@ -1056,7 +1303,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.14),
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
@@ -1152,7 +1402,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF062056) : Colors.transparent,
+                  color: isSelected
+                      ? const Color(0xFF062056)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -1161,15 +1413,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     Icon(
                       tabs[index]['icon'] as IconData,
                       size: 18,
-                      color: isSelected ? const Color(0xFFF26716) : const Color(0xFF64748B),
+                      color: isSelected
+                          ? const Color(0xFFF26716)
+                          : const Color(0xFF64748B),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       tabs[index]['label'] as String,
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                        color: isSelected ? Colors.white : const Color(0xFF64748B),
+                        fontWeight: isSelected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF64748B),
                       ),
                     ),
                   ],
@@ -1203,7 +1461,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   Widget _buildOverviewTab() {
     return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1253,7 +1513,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
-          BoxShadow(color: Color(0x06000000), blurRadius: 10, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: Row(
@@ -1287,14 +1551,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF10B981).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text(
                         '99.98% SLA',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF10B981)),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF10B981),
+                        ),
                       ),
                     ),
                   ],
@@ -1341,7 +1612,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
-          BoxShadow(color: Color(0x06000000), blurRadius: 12, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
@@ -1356,7 +1631,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.show_chart_rounded, size: 18, color: Color(0xFF062056)),
+                      Icon(
+                        Icons.show_chart_rounded,
+                        size: 18,
+                        color: Color(0xFF062056),
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Tren Analisis & Pendapatan',
@@ -1405,7 +1684,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF062056).withValues(alpha: 0.1)),
+              border: Border.all(
+                color: const Color(0xFF062056).withValues(alpha: 0.1),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1415,7 +1696,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   children: [
                     Text(
                       curDay['fullDay'] as String,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -1429,18 +1714,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF10B981).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.trending_up_rounded, size: 14, color: Color(0xFF10B981)),
+                      const Icon(
+                        Icons.trending_up_rounded,
+                        size: 14,
+                        color: Color(0xFF10B981),
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         curDay['growth'] as String,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF10B981)),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF10B981),
+                        ),
                       ),
                     ],
                   ),
@@ -1488,7 +1784,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 borderRadius: BorderRadius.circular(8),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: isSel ? const Color(0xFF062056) : Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
@@ -1548,15 +1847,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF061A40),
-            Color(0xFF0A2558),
-            Color(0xFF041433),
-          ],
+          colors: [Color(0xFF061A40), Color(0xFF0A2558), Color(0xFF041433)],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [
-          BoxShadow(color: Color(0x33000000), blurRadius: 14, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
@@ -1585,15 +1884,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 decoration: BoxDecoration(
                   color: const Color(0xFFEF4444).withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.7), width: 0.8),
+                  border: Border.all(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.7),
+                    width: 0.8,
+                  ),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.fiber_manual_record_rounded, size: 8, color: Color(0xFFEF4444)),
+                    Icon(
+                      Icons.fiber_manual_record_rounded,
+                      size: 8,
+                      color: Color(0xFFEF4444),
+                    ),
                     SizedBox(width: 4),
                     Text(
                       '350 KM/JAM',
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFFFF6B6B)),
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFFF6B6B),
+                      ),
                     ),
                   ],
                 ),
@@ -1666,7 +1976,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
-          BoxShadow(color: Color(0x06000000), blurRadius: 12, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
@@ -1674,7 +1988,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         children: [
           const Row(
             children: [
-              Icon(Icons.pie_chart_outline_rounded, size: 18, color: Color(0xFF062056)),
+              Icon(
+                Icons.pie_chart_outline_rounded,
+                size: 18,
+                color: Color(0xFF062056),
+              ),
               SizedBox(width: 6),
               Text(
                 'Distribusi Okupansi per Kelas',
@@ -1715,7 +2033,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           children: [
                             const Text(
                               'Total',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                             Text(
                               '${_metrics?.ticketsSold ?? 1428}',
@@ -1727,7 +2049,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             ),
                             const Text(
                               'Tiket',
-                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
@@ -1755,9 +2081,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: isSel ? col.withValues(alpha: 0.1) : Colors.transparent,
+                          color: isSel
+                              ? col.withValues(alpha: 0.1)
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -1778,7 +2109,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
+                                  fontWeight: isSel
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
                                   color: const Color(0xFF1E293B),
                                 ),
                               ),
@@ -1819,7 +2152,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
-          BoxShadow(color: Color(0x06000000), blurRadius: 10, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
@@ -1830,7 +2167,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             children: [
               const Row(
                 children: [
-                  Icon(Icons.bar_chart_rounded, size: 18, color: Color(0xFF062056)),
+                  Icon(
+                    Icons.bar_chart_rounded,
+                    size: 18,
+                    color: Color(0xFF062056),
+                  ),
                   SizedBox(width: 6),
                   Text(
                     'Trafik Penumpang per Jam',
@@ -1850,7 +2191,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ),
                 child: const Text(
                   'Ketuk Batang',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF475569),
+                  ),
                 ),
               ),
             ],
@@ -1875,17 +2220,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFFF26716)),
+                    const Icon(
+                      Icons.access_time_rounded,
+                      size: 14,
+                      color: Color(0xFFF26716),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       'Pukul ${curHour['time']} WIB',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF062056)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF062056),
+                      ),
                     ),
                   ],
                 ),
                 Text(
                   '${curHour['passengers']} Penumpang (${((curHour['load'] as double) * 100).toInt()}% Okupansi)',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF10B981)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF10B981),
+                  ),
                 ),
               ],
             ),
@@ -1925,7 +2282,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               fontWeight: FontWeight.w700,
                               color: isSel
                                   ? const Color(0xFFF26716)
-                                  : (isPeak ? const Color(0xFFF26716) : const Color(0xFF94A3B8)),
+                                  : (isPeak
+                                        ? const Color(0xFFF26716)
+                                        : const Color(0xFF94A3B8)),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -1937,19 +2296,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                 begin: Alignment.bottomCenter,
                                 end: Alignment.topCenter,
                                 colors: isSel
-                                    ? [const Color(0xFFF26716), const Color(0xFFFF944D)]
+                                    ? [
+                                        const Color(0xFFF26716),
+                                        const Color(0xFFFF944D),
+                                      ]
                                     : (isPeak
-                                        ? [const Color(0xFFF26716), const Color(0xFFFF8A3D)]
-                                        : [const Color(0xFF062056), const Color(0xFF1E3A8A)]),
+                                          ? [
+                                              const Color(0xFFF26716),
+                                              const Color(0xFFFF8A3D),
+                                            ]
+                                          : [
+                                              const Color(0xFF062056),
+                                              const Color(0xFF1E3A8A),
+                                            ]),
                               ),
                               borderRadius: BorderRadius.circular(6),
                               border: isSel
-                                  ? Border.all(color: const Color(0xFF062056), width: 2)
+                                  ? Border.all(
+                                      color: const Color(0xFF062056),
+                                      width: 2,
+                                    )
                                   : null,
                               boxShadow: isSel
                                   ? [
                                       BoxShadow(
-                                        color: const Color(0xFFF26716).withValues(alpha: 0.4),
+                                        color: const Color(0xFFF26716)
+                                            .withValues(alpha: 0.4),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -1962,8 +2334,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             h['time'] as String,
                             style: TextStyle(
                               fontSize: 10,
-                              fontWeight: isSel ? FontWeight.w900 : (isPeak ? FontWeight.w800 : FontWeight.w600),
-                              color: isSel ? const Color(0xFFF26716) : (isPeak ? const Color(0xFF0F172A) : const Color(0xFF64748B)),
+                              fontWeight: isSel
+                                  ? FontWeight.w900
+                                  : (isPeak
+                                        ? FontWeight.w800
+                                        : FontWeight.w600),
+                              color: isSel
+                                  ? const Color(0xFFF26716)
+                                  : (isPeak
+                                        ? const Color(0xFF0F172A)
+                                        : const Color(0xFF64748B)),
                             ),
                           ),
                         ],
@@ -2022,7 +2402,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: const [
-            BoxShadow(color: Color(0x06000000), blurRadius: 8, offset: Offset(0, 3)),
+            BoxShadow(
+              color: Color(0x06000000),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
           ],
         ),
         child: Row(
@@ -2051,7 +2435,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ],
               ),
@@ -2086,7 +2473,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               ),
               Text(
                 'Real-time',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey.shade500),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey.shade500,
+                ),
               ),
             ],
           ),
@@ -2145,7 +2536,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
+                ),
               ),
               const SizedBox(height: 2),
               Text(
@@ -2198,9 +2593,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     color: isSelected ? Colors.white : const Color(0xFF475569),
                   ),
                   side: BorderSide(
-                    color: isSelected ? const Color(0xFF062056) : const Color(0xFFCBD5E1),
+                    color: isSelected
+                        ? const Color(0xFF062056)
+                        : const Color(0xFFCBD5E1),
                   ),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               );
             }).toList(),
@@ -2212,7 +2611,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           child: _schedules.isEmpty
               ? _buildEmptyState(
                   title: 'Tidak Ada Jadwal Kereta',
-                  desc: 'Tidak ada perjalanan kereta yang cocok dengan filter "$_scheduleFilter".',
+                  desc:
+                      'Tidak ada perjalanan kereta yang cocok dengan filter "$_scheduleFilter".',
                   onReset: () {
                     setState(() => _scheduleFilter = 'Semua');
                     _fetchSchedules();
@@ -2243,7 +2643,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
-          BoxShadow(color: Color(0x06000000), blurRadius: 8, offset: Offset(0, 3)),
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
         ],
       ),
       child: Column(
@@ -2283,15 +2687,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               // Status Badge with Tap Menu
               PopupMenuButton<String>(
                 onSelected: (newStatus) async {
-                  await AdminService.updateScheduleStatus(id: item.id, newStatus: newStatus);
-                  _showNotification('Status ${item.trainNumber} diubah ke $newStatus');
+                  await AdminService.updateScheduleStatus(
+                    id: item.id,
+                    newStatus: newStatus,
+                  );
+                  _showNotification(
+                    'Status ${item.trainNumber} diubah ke $newStatus',
+                  );
                   _fetchSchedules();
                 },
                 itemBuilder: (ctx) => [
-                  const PopupMenuItem(value: 'Tepat Waktu', child: Text('🟢 Tepat Waktu')),
-                  const PopupMenuItem(value: 'Boarding', child: Text('🟡 Boarding')),
-                  const PopupMenuItem(value: 'Terlambat 15m', child: Text('🔴 Terlambat 15m')),
-                  const PopupMenuItem(value: 'Tiba', child: Text('⚪ Tiba di Tujuan')),
+                  const PopupMenuItem(
+                    value: 'Tepat Waktu',
+                    child: Text('🟢 Tepat Waktu'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'Boarding',
+                    child: Text('🟡 Boarding'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'Terlambat 15m',
+                    child: Text('🔴 Terlambat 15m'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'Tiba',
+                    child: Text('⚪ Tiba di Tujuan'),
+                  ),
                 ],
                 child: _buildStatusPill(item.status, isInteractive: true),
               ),
@@ -2309,27 +2730,47 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   children: [
                     Text(
                       item.origin,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                      ),
                     ),
                     Text(
                       item.departureTime,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFF26716)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFF26716),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_rounded, color: Color(0xFF94A3B8), size: 18),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: Color(0xFF94A3B8),
+                size: 18,
+              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
                       item.destination,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                      ),
                     ),
                     Text(
                       item.arrivalTime,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ],
                 ),
@@ -2347,11 +2788,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             children: [
               Text(
                 'Okupansi: ${item.bookedSeats}/${item.capacity} Kursi (${(occupancyPct * 100).toInt()}%)',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF64748B),
+                ),
               ),
               Text(
                 'Rp ${_formatCurrency(item.fare)}',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF062056)),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF062056),
+                ),
               ),
             ],
           ),
@@ -2363,7 +2812,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               minHeight: 6,
               backgroundColor: const Color(0xFFE2E8F0),
               valueColor: AlwaysStoppedAnimation<Color>(
-                occupancyPct > 0.9 ? const Color(0xFFF26716) : const Color(0xFF10B981),
+                occupancyPct > 0.9
+                    ? const Color(0xFFF26716)
+                    : const Color(0xFF10B981),
               ),
             ),
           ),
@@ -2390,8 +2841,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 controller: _bookingSearchController,
                 decoration: InputDecoration(
                   hintText: 'Cari nama penumpang, kode booking, rute...',
-                  hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF64748B)),
+                  hintStyle: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF94A3B8),
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    size: 20,
+                    color: Color(0xFF64748B),
+                  ),
                   suffixIcon: _bookingSearchController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear_rounded, size: 18),
@@ -2403,7 +2861,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       : null,
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -2436,13 +2897,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         backgroundColor: Colors.white,
                         labelStyle: TextStyle(
                           fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                          color: isSelected ? Colors.white : const Color(0xFF475569),
+                          fontWeight: isSelected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF475569),
                         ),
                         side: BorderSide(
-                          color: isSelected ? const Color(0xFF062056) : const Color(0xFFCBD5E1),
+                          color: isSelected
+                              ? const Color(0xFF062056)
+                              : const Color(0xFFCBD5E1),
                         ),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     );
                   }).toList(),
@@ -2490,7 +2959,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: const [
-            BoxShadow(color: Color(0x06000000), blurRadius: 8, offset: Offset(0, 3)),
+            BoxShadow(
+              color: Color(0x06000000),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
           ],
         ),
         child: Column(
@@ -2507,7 +2980,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         color: const Color(0xFF062056).withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.confirmation_number_outlined, size: 16, color: Color(0xFF062056)),
+                      child: const Icon(
+                        Icons.confirmation_number_outlined,
+                        size: 16,
+                        color: Color(0xFF062056),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -2541,11 +3018,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       const SizedBox(height: 2),
                       Text(
                         '${booking.trainNumber} • ${booking.route}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                       Text(
                         '${booking.travelDate} • ${booking.departureTime}',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ),
                     ],
                   ),
@@ -2564,7 +3047,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     const SizedBox(height: 2),
                     Text(
                       booking.seatNumber,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF475569),
+                      ),
                     ),
                   ],
                 ),
@@ -2582,7 +3069,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   Widget _buildAdminManagementTab() {
     return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2614,7 +3103,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         color: const Color(0xFFF26716),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.admin_panel_settings_rounded, color: Colors.white, size: 20),
+                      child: const Icon(
+                        Icons.admin_panel_settings_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     const Expanded(
@@ -2647,13 +3140,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     icon: const Icon(Icons.person_add_rounded, size: 18),
                     label: const Text(
                       'Daftarkan Akun Admin Baru',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFF26716),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
@@ -2683,11 +3181,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF10B981)),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: 12,
+                      color: Color(0xFF10B981),
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Semua Terverifikasi',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF10B981)),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF10B981),
+                      ),
                     ),
                   ],
                 ),
@@ -2721,7 +3227,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
-          BoxShadow(color: Color(0x06000000), blurRadius: 8, offset: Offset(0, 3)),
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
         ],
       ),
       child: Row(
@@ -2739,8 +3249,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               admin.role == 'Super Admin'
                   ? Icons.security_rounded
                   : admin.role == 'Finance & Audit'
-                      ? Icons.account_balance_rounded
-                      : Icons.badge_rounded,
+                  ? Icons.account_balance_rounded
+                  : Icons.badge_rounded,
               color: const Color(0xFF062056),
               size: 22,
             ),
@@ -2768,7 +3278,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF26716).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
@@ -2787,21 +3300,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 const SizedBox(height: 3),
                 Text(
                   admin.email,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.cloud_done_rounded, size: 12, color: Color(0xFF10B981)),
+                    const Icon(
+                      Icons.cloud_done_rounded,
+                      size: 12,
+                      color: Color(0xFF10B981),
+                    ),
                     const SizedBox(width: 4),
                     const Text(
                       'Terkoneksi Supabase',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF10B981)),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF10B981),
+                      ),
                     ),
                     const Spacer(),
                     Text(
                       'Status: ${admin.status}',
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ),
                   ],
                 ),
@@ -2876,7 +3403,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value, {bool isBold = false}) {
+  Widget _buildDetailRow(
+    IconData icon,
+    String label,
+    String value, {
+    bool isBold = false,
+  }) {
     return Row(
       children: [
         Icon(icon, size: 16, color: const Color(0xFF64748B)),
@@ -2934,18 +3466,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             Text(
               desc,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
             ),
             if (onReset != null) ...[
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: onReset,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('Reset Filter', style: TextStyle(fontWeight: FontWeight.w700)),
+                label: const Text(
+                  'Reset Filter',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFF062056)),
                   foregroundColor: const Color(0xFF062056),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ],
@@ -2962,7 +3503,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.cloud_off_rounded, size: 48, color: Color(0xFFEF4444)),
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 48,
+              color: Color(0xFFEF4444),
+            ),
             const SizedBox(height: 14),
             const Text(
               'Gagal Menghubungkan Supabase',
@@ -3059,7 +3604,8 @@ class _RevenueCurvePainter extends CustomPainter {
     for (int i = 0; i < n; i++) {
       final x = i * dx;
       // Invert Y and apply curve progress
-      final normalizedY = (1.0 - (values[i].clamp(0.0, 1.0))) * (h * 0.75) + (h * 0.12);
+      final normalizedY =
+          (1.0 - (values[i].clamp(0.0, 1.0))) * (h * 0.75) + (h * 0.12);
       final animatedY = h - (h - normalizedY) * progress;
       points.add(Offset(x, animatedY));
     }
@@ -3094,9 +3640,8 @@ class _RevenueCurvePainter extends CustomPainter {
 
     // 4. Draw Spline Line with Gradient
     final strokePaint = Paint()
-      ..shader = LinearGradient(
-        colors: [primaryColor, accentColor],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, h))
+      ..shader = LinearGradient(colors: [primaryColor, accentColor])
+          .createShader(Rect.fromLTWH(0, 0, size.width, h))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.2
       ..strokeCap = StrokeCap.round;
@@ -3208,7 +3753,8 @@ class _DonutChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DonutChartPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.selectedIndex != selectedIndex;
+    return oldDelegate.progress != progress ||
+        oldDelegate.selectedIndex != selectedIndex;
   }
 }
 
@@ -3230,7 +3776,14 @@ class _LiveRailwayTrackPainter extends CustomPainter {
     // 1. Draw Base Track Curve
     final trackPath = Path()
       ..moveTo(24, centerY)
-      ..cubicTo(w * 0.35, centerY - 18, w * 0.65, centerY + 18, w - 24, centerY);
+      ..cubicTo(
+        w * 0.35,
+        centerY - 18,
+        w * 0.65,
+        centerY + 18,
+        w - 24,
+        centerY,
+      );
 
     // Track Rail (Glow line)
     final railBg = Paint()
@@ -3270,7 +3823,9 @@ class _LiveRailwayTrackPainter extends CustomPainter {
 
           // Station dot
           final dotPaint = Paint()
-            ..color = isPassed ? const Color(0xFFF26716) : Colors.white.withValues(alpha: 0.5)
+            ..color = isPassed
+                ? const Color(0xFFF26716)
+                : Colors.white.withValues(alpha: 0.5)
             ..style = PaintingStyle.fill;
           canvas.drawCircle(pos.position, 4.5, dotPaint);
 
@@ -3285,14 +3840,19 @@ class _LiveRailwayTrackPainter extends CustomPainter {
             text: TextSpan(
               text: st['name'] as String,
               style: TextStyle(
-                color: isPassed ? Colors.white : Colors.white.withValues(alpha: 0.6),
+                color: isPassed
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.6),
                 fontSize: 10,
                 fontWeight: isPassed ? FontWeight.w800 : FontWeight.w600,
               ),
             ),
             textDirection: TextDirection.ltr,
           )..layout();
-          tp.paint(canvas, Offset(pos.position.dx - (tp.width / 2), pos.position.dy + 12));
+          tp.paint(
+            canvas,
+            Offset(pos.position.dx - (tp.width / 2), pos.position.dy + 12),
+          );
         }
       }
 
@@ -3348,7 +3908,13 @@ class _LiveRailwayTrackPainter extends CustomPainter {
 
         final pillBg = Paint()..color = const Color(0xFFF26716);
         canvas.drawRRect(pillRect, pillBg);
-        trainPill.paint(canvas, Offset(tPos.dx - (trainPill.width / 2), tPos.dy - 16 - (trainPill.height / 2)));
+        trainPill.paint(
+          canvas,
+          Offset(
+            tPos.dx - (trainPill.width / 2),
+            tPos.dy - 16 - (trainPill.height / 2),
+          ),
+        );
       }
     }
   }

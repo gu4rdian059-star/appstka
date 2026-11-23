@@ -19,7 +19,8 @@ class SupabaseService {
 
     await AppEnv.load();
 
-    if (supabaseAnonKey == 'TEMPEL_ANON_KEY_DI_SINI' || supabaseAnonKey.isEmpty) {
+    if (supabaseAnonKey == 'TEMPEL_ANON_KEY_DI_SINI' ||
+        supabaseAnonKey.isEmpty) {
       debugPrint(
         '⚠️ Supabase Anon Key belum diisi di .env. '
         'Aplikasi berjalan dengan mode fallback lokal.',

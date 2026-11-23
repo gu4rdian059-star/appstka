@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'supabase_service.dart';
 
 /// ============================================================================
@@ -60,10 +62,7 @@ class TrainScheduleItem {
     required this.fare,
   });
 
-  TrainScheduleItem copyWith({
-    String? status,
-    int? bookedSeats,
-  }) {
+  TrainScheduleItem copyWith({String? status, int? bookedSeats}) {
     return TrainScheduleItem(
       id: id,
       trainNumber: trainNumber,
@@ -133,9 +132,7 @@ class BookingTransactionItem {
     required this.createdAt,
   });
 
-  BookingTransactionItem copyWith({
-    String? status,
-  }) {
+  BookingTransactionItem copyWith({String? status}) {
     return BookingTransactionItem(
       bookingId: bookingId,
       passengerName: passengerName,
@@ -206,7 +203,10 @@ class AdminAccountItem {
     };
   }
 
-  factory AdminAccountItem.fromMap(Map<String, dynamic> map, {bool isSynced = true}) {
+  factory AdminAccountItem.fromMap(
+    Map<String, dynamic> map, {
+    bool isSynced = true,
+  }) {
     return AdminAccountItem(
       id: (map['id'] ?? map['user_id'] ?? '').toString(),
       email: (map['email'] ?? '').toString(),
@@ -240,7 +240,9 @@ class AdminService {
       final client = SupabaseService.client;
       // Heartbeat ping via auth or health check
       final user = client.auth.currentUser;
-      debugPrint('Supabase connection verified. Current user: ${user?.email ?? "Anon"}');
+      debugPrint(
+        'Supabase connection verified. Current user: ${user?.email ?? "Anon"}',
+      );
       return true;
     } catch (e) {
       debugPrint('Supabase ping fallback: $e');
@@ -253,7 +255,7 @@ class AdminService {
   /// --------------------------------------------------------------------------
   static Future<AdminOverviewMetrics> getOverviewMetrics() async {
     await _ensureDataLoaded();
-    
+
     // Calculate live dynamic metrics from current runtime bookings & schedules
     double totalRevenue = 0.0;
     int ticketsSold = 0;
@@ -270,10 +272,20 @@ class AdminService {
       ticketsSold += 1428;
     }
 
-    final activeTrains = _runtimeSchedules.where((s) => s.status != 'Dibatalkan').length;
-    final totalSeats = _runtimeSchedules.fold<int>(0, (sum, item) => sum + item.capacity);
-    final bookedSeats = _runtimeSchedules.fold<int>(0, (sum, item) => sum + item.bookedSeats);
-    final occupancy = totalSeats > 0 ? ((bookedSeats / totalSeats) * 100).round() : 88;
+    final activeTrains = _runtimeSchedules
+        .where((s) => s.status != 'Dibatalkan')
+        .length;
+    final totalSeats = _runtimeSchedules.fold<int>(
+      0,
+      (sum, item) => sum + item.capacity,
+    );
+    final bookedSeats = _runtimeSchedules.fold<int>(
+      0,
+      (sum, item) => sum + item.bookedSeats,
+    );
+    final occupancy = totalSeats > 0
+        ? ((bookedSeats / totalSeats) * 100).round()
+        : 88;
 
     return AdminOverviewMetrics(
       totalRevenue: totalRevenue,
@@ -291,39 +303,57 @@ class AdminService {
   /// --------------------------------------------------------------------------
   /// 2. TRAIN SCHEDULES (ARMADA & JADWAL KERETA)
   /// --------------------------------------------------------------------------
-  static Future<List<TrainScheduleItem>> getTrainSchedules({String? statusFilter}) async {
+  static Future<List<TrainScheduleItem>> getTrainSchedules({
+    String? statusFilter,
+  }) async {
     await _ensureDataLoaded();
 
     try {
       final client = SupabaseService.client;
-      final query = client.from('train_schedules').select('id, train_number, train_name, category, origin, destination, departure_time, arrival_time, status, capacity, booked_seats, fare');
+      final query = client
+          .from('train_schedules')
+          .select(
+            'id, train_number, train_name, category, origin, destination, departure_time, arrival_time, status, capacity, booked_seats, fare',
+          );
       final res = await query.order('departure_time');
-      
+
       if (res.isNotEmpty) {
-        final list = res.map((m) => TrainScheduleItem(
-          id: (m['id'] ?? '').toString(),
-          trainNumber: (m['train_number'] ?? '').toString(),
-          trainName: (m['train_name'] ?? '').toString(),
-          category: (m['category'] ?? 'Eksekutif').toString(),
-          origin: (m['origin'] ?? '').toString(),
-          destination: (m['destination'] ?? '').toString(),
-          departureTime: (m['departure_time'] ?? '').toString(),
-          arrivalTime: (m['arrival_time'] ?? '').toString(),
-          status: (m['status'] ?? 'Tepat Waktu').toString(),
-          capacity: int.tryParse(m['capacity']?.toString() ?? '500') ?? 500,
-          bookedSeats: int.tryParse(m['booked_seats']?.toString() ?? '450') ?? 450,
-          fare: double.tryParse(m['fare']?.toString() ?? '250000') ?? 250000,
-        )).toList();
+        final list = res
+            .map(
+              (m) => TrainScheduleItem(
+                id: (m['id'] ?? '').toString(),
+                trainNumber: (m['train_number'] ?? '').toString(),
+                trainName: (m['train_name'] ?? '').toString(),
+                category: (m['category'] ?? 'Eksekutif').toString(),
+                origin: (m['origin'] ?? '').toString(),
+                destination: (m['destination'] ?? '').toString(),
+                departureTime: (m['departure_time'] ?? '').toString(),
+                arrivalTime: (m['arrival_time'] ?? '').toString(),
+                status: (m['status'] ?? 'Tepat Waktu').toString(),
+                capacity:
+                    int.tryParse(m['capacity']?.toString() ?? '500') ?? 500,
+                bookedSeats:
+                    int.tryParse(m['booked_seats']?.toString() ?? '450') ?? 450,
+                fare:
+                    double.tryParse(m['fare']?.toString() ?? '250000') ??
+                    250000,
+              ),
+            )
+            .toList();
 
         _runtimeSchedules.clear();
         _runtimeSchedules.addAll(list);
       }
     } catch (e) {
-      debugPrint('Supabase train_schedules read fallback (table not yet migrated or offline): $e');
+      debugPrint(
+        'Supabase train_schedules read fallback (table not yet migrated or offline): $e',
+      );
     }
 
     if (statusFilter != null && statusFilter != 'Semua') {
-      return _runtimeSchedules.where((s) => s.status.toLowerCase() == statusFilter.toLowerCase()).toList();
+      return _runtimeSchedules
+          .where((s) => s.status.toLowerCase() == statusFilter.toLowerCase())
+          .toList();
     }
     return List.unmodifiable(_runtimeSchedules);
   }
@@ -336,15 +366,22 @@ class AdminService {
     await _ensureDataLoaded();
     final index = _runtimeSchedules.indexWhere((s) => s.id == id);
     if (index != -1) {
-      _runtimeSchedules[index] = _runtimeSchedules[index].copyWith(status: newStatus);
+      _runtimeSchedules[index] = _runtimeSchedules[index].copyWith(
+        status: newStatus,
+      );
     }
 
     try {
       final client = SupabaseService.client;
-      await client.from('train_schedules').update({'status': newStatus}).eq('id', id);
+      await client
+          .from('train_schedules')
+          .update({'status': newStatus})
+          .eq('id', id);
       debugPrint('✅ Updated schedule in Supabase: $id -> $newStatus');
     } catch (e) {
-      debugPrint('ℹ️ Updated schedule in local runtime (Supabase remote note): $e');
+      debugPrint(
+        'ℹ️ Updated schedule in local runtime (Supabase remote note): $e',
+      );
     }
 
     return true;
@@ -379,28 +416,36 @@ class AdminService {
       final client = SupabaseService.client;
       final res = await client
           .from('bookings')
-          .select('booking_id, passenger_name, passenger_email, passenger_phone, train_number, train_name, route, travel_date, departure_time, seat_number, wagon_class, amount, status, payment_method, created_at')
+          .select(
+            'booking_id, passenger_name, passenger_email, passenger_phone, train_number, train_name, route, travel_date, departure_time, seat_number, wagon_class, amount, status, payment_method, created_at',
+          )
           .order('created_at', ascending: false)
           .limit(50);
 
       if (res.isNotEmpty) {
-        final list = res.map((m) => BookingTransactionItem(
-          bookingId: (m['booking_id'] ?? '').toString(),
-          passengerName: (m['passenger_name'] ?? '').toString(),
-          passengerEmail: (m['passenger_email'] ?? '').toString(),
-          passengerPhone: (m['passenger_phone'] ?? '').toString(),
-          trainNumber: (m['train_number'] ?? '').toString(),
-          trainName: (m['train_name'] ?? '').toString(),
-          route: (m['route'] ?? '').toString(),
-          travelDate: (m['travel_date'] ?? '').toString(),
-          departureTime: (m['departure_time'] ?? '').toString(),
-          seatNumber: (m['seat_number'] ?? '').toString(),
-          wagonClass: (m['wagon_class'] ?? 'Eksekutif').toString(),
-          amount: double.tryParse(m['amount']?.toString() ?? '0') ?? 0,
-          status: (m['status'] ?? 'Lunas').toString(),
-          paymentMethod: (m['payment_method'] ?? 'TKAPay').toString(),
-          createdAt: DateTime.tryParse(m['created_at']?.toString() ?? '') ?? DateTime.now(),
-        )).toList();
+        final list = res
+            .map(
+              (m) => BookingTransactionItem(
+                bookingId: (m['booking_id'] ?? '').toString(),
+                passengerName: (m['passenger_name'] ?? '').toString(),
+                passengerEmail: (m['passenger_email'] ?? '').toString(),
+                passengerPhone: (m['passenger_phone'] ?? '').toString(),
+                trainNumber: (m['train_number'] ?? '').toString(),
+                trainName: (m['train_name'] ?? '').toString(),
+                route: (m['route'] ?? '').toString(),
+                travelDate: (m['travel_date'] ?? '').toString(),
+                departureTime: (m['departure_time'] ?? '').toString(),
+                seatNumber: (m['seat_number'] ?? '').toString(),
+                wagonClass: (m['wagon_class'] ?? 'Eksekutif').toString(),
+                amount: double.tryParse(m['amount']?.toString() ?? '0') ?? 0,
+                status: (m['status'] ?? 'Lunas').toString(),
+                paymentMethod: (m['payment_method'] ?? 'TKAPay').toString(),
+                createdAt:
+                    DateTime.tryParse(m['created_at']?.toString() ?? '') ??
+                    DateTime.now(),
+              ),
+            )
+            .toList();
 
         _runtimeBookings.clear();
         _runtimeBookings.addAll(list);
@@ -425,7 +470,9 @@ class AdminService {
 
     // Apply Status Filter
     if (statusFilter != null && statusFilter != 'Semua') {
-      result = result.where((b) => b.status.toLowerCase() == statusFilter.toLowerCase()).toList();
+      result = result
+          .where((b) => b.status.toLowerCase() == statusFilter.toLowerCase())
+          .toList();
     }
 
     return result;
@@ -439,12 +486,17 @@ class AdminService {
     await _ensureDataLoaded();
     final index = _runtimeBookings.indexWhere((b) => b.bookingId == bookingId);
     if (index != -1) {
-      _runtimeBookings[index] = _runtimeBookings[index].copyWith(status: newStatus);
+      _runtimeBookings[index] = _runtimeBookings[index].copyWith(
+        status: newStatus,
+      );
     }
 
     try {
       final client = SupabaseService.client;
-      await client.from('bookings').update({'status': newStatus}).eq('booking_id', bookingId);
+      await client
+          .from('bookings')
+          .update({'status': newStatus})
+          .eq('booking_id', bookingId);
       debugPrint('✅ Updated booking $bookingId to $newStatus in Supabase');
     } catch (e) {
       debugPrint('ℹ️ Updated booking in local cache: $e');
@@ -470,13 +522,17 @@ class AdminService {
       if (res.isNotEmpty) {
         for (final item in res) {
           final account = AdminAccountItem.fromMap(item, isSynced: true);
-          if (!_runtimeAdmins.any((a) => a.email.toLowerCase() == account.email.toLowerCase())) {
+          if (!_runtimeAdmins.any(
+            (a) => a.email.toLowerCase() == account.email.toLowerCase(),
+          )) {
             _runtimeAdmins.insert(0, account);
           }
         }
       }
     } catch (e) {
-      debugPrint('Supabase admin_users query notice (using authenticated cache): $e');
+      debugPrint(
+        'Supabase admin_users query notice (using authenticated cache): $e',
+      );
     }
 
     return List.unmodifiable(_runtimeAdmins);
@@ -484,7 +540,8 @@ class AdminService {
 
   /// Register a brand new Admin Account directly into Supabase!
   /// Calls Supabase Auth signUp and creates admin_users record + audit log.
-  static Future<({bool success, String message, AdminAccountItem? account})> createAdminAccount({
+  static Future<({bool success, String message, AdminAccountItem? account})>
+  createAdminAccount({
     required String email,
     required String password,
     required String fullName,
@@ -507,16 +564,12 @@ class AdminService {
 
     try {
       final client = SupabaseService.client;
-      
+
       // 1. Daftarkan akun ke Supabase Auth
       final authResponse = await client.auth.signUp(
         email: cleanEmail,
         password: password,
-        data: {
-          'full_name': cleanName,
-          'role': role,
-          'is_admin': true,
-        },
+        data: {'full_name': cleanName, 'role': role, 'is_admin': true},
       );
 
       if (authResponse.user != null) {
@@ -555,11 +608,11 @@ class AdminService {
       } catch (auditErr) {
         debugPrint('Notice: admin_audit_logs: $auditErr');
       }
-
     } catch (e) {
       debugPrint('Supabase signup notice: $e');
       // If error is invalid credentials or already registered in Auth:
-      if (e.toString().contains('already registered') || e.toString().contains('User already registered')) {
+      if (e.toString().contains('already registered') ||
+          e.toString().contains('User already registered')) {
         return (
           success: false,
           message: 'Email sudah terdaftar di Supabase Auth. Silakan gunakan email lain atau hubungi Super Admin.',
@@ -585,11 +638,7 @@ class AdminService {
         ? 'Akun Admin berhasil dibuat dan tersinkronisasi dengan Supabase Auth & Cloud Database!'
         : 'Akun Admin berhasil dibuat dan tersimpan aman di database sistem!';
 
-    return (
-      success: true,
-      message: successMsg,
-      account: newAdmin,
-    );
+    return (success: true, message: successMsg, account: newAdmin);
   }
 
   /// --------------------------------------------------------------------------
@@ -764,7 +813,9 @@ class AdminService {
         amount: 650000,
         status: 'Menunggu',
         paymentMethod: 'Mandiri VA',
-        createdAt: DateTime.now().subtract(const Duration(hours: 1, minutes: 10)),
+        createdAt: DateTime.now().subtract(
+          const Duration(hours: 1, minutes: 10),
+        ),
       ),
       BookingTransactionItem(
         bookingId: 'TKA-BK-89018',
@@ -781,7 +832,9 @@ class AdminService {
         amount: 380000,
         status: 'Refund',
         paymentMethod: 'GoPay',
-        createdAt: DateTime.now().subtract(const Duration(hours: 2, minutes: 25)),
+        createdAt: DateTime.now().subtract(
+          const Duration(hours: 2, minutes: 25),
+        ),
       ),
       BookingTransactionItem(
         bookingId: 'TKA-BK-89017',
@@ -814,7 +867,9 @@ class AdminService {
             final name = parts[1];
             final role = parts[2];
             final id = parts[3];
-            if (!_runtimeAdmins.any((a) => a.email.toLowerCase() == email.toLowerCase())) {
+            if (!_runtimeAdmins.any(
+              (a) => a.email.toLowerCase() == email.toLowerCase(),
+            )) {
               _runtimeAdmins.insert(
                 0,
                 AdminAccountItem(
@@ -839,7 +894,9 @@ class AdminService {
   static Future<void> _saveLocalAdmins() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final stringList = _runtimeAdmins.map((a) => '${a.email}|||${a.fullName}|||${a.role}|||${a.id}').toList();
+      final stringList = _runtimeAdmins
+          .map((a) => '${a.email}|||${a.fullName}|||${a.role}|||${a.id}')
+          .toList();
       await prefs.setStringList(_localAdminPrefsKey, stringList);
     } catch (e) {
       debugPrint('Error caching admins: $e');

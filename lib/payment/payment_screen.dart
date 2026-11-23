@@ -1,10 +1,11 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../services/session_service.dart';
 import '../services/user_db_service.dart';
 import '../dashboard/dashboard_screen.dart';
-import '../tickets/my_tickets_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   final TrainScheduleModel? schedule;
@@ -41,9 +42,9 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  // Metode pembayaran yang dipilih
-  String _selectedMethod = 'QRIS'; // 'QRIS', 'TKAPay', 'BCA VA', 'Mandiri VA', 'BRI VA', 'BNI VA', 'GoPay', 'OVO', 'DANA', 'ShopeePay'
-  
+  // Metode pembayaran yang dipilih (kosong secara default)
+  String _selectedMethod = '';
+
   // Saldo pengguna aktif
   int _userBalance = 0;
   bool _isLoadingBalance = true;
@@ -103,19 +104,48 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return widget.fare ?? widget.schedule?.baseFare ?? 250000;
   }
 
-  String get _trainName => widget.existingBooking?.trainName ?? widget.schedule?.name ?? 'KA Argo Bromo Anggrek';
-  String get _trainClass => widget.existingBooking?.trainClass ?? widget.selectedClass ?? 'Eksekutif';
-  String get _originCode => widget.existingBooking?.originCode ?? widget.origin?.code ?? widget.schedule?.originCode ?? 'GMR';
-  String get _originCity => widget.existingBooking?.originCity ?? widget.origin?.city ?? widget.schedule?.originCity ?? 'Jakarta Pusat';
-  String get _destCode => widget.existingBooking?.destCode ?? widget.dest?.code ?? widget.schedule?.destCode ?? 'SBI';
-  String get _destCity => widget.existingBooking?.destCity ?? widget.dest?.city ?? widget.schedule?.destCity ?? 'Surabaya';
-  String get _departureTime => widget.existingBooking?.departureTime ?? widget.schedule?.departureTime ?? '08:20 WIB';
-  String get _arrivalTime => widget.existingBooking?.arrivalTime ?? widget.schedule?.arrivalTime ?? '16:25 WIB';
-  String get _travelDate => widget.existingBooking?.travelDate ?? widget.travelDate ?? 'Besok';
-  String get _passengerName => widget.existingBooking?.passengerName ?? widget.passengerName ?? 'Penumpang TKA';
-  String get _passengerNik => widget.existingBooking?.passengerNik ?? widget.passengerNik ?? '3514062607090001';
-  String get _passengerPhone => widget.existingBooking?.passengerPhone ?? widget.passengerPhone ?? '+62 812-3456-7890';
-  String get _seatNumber => widget.existingBooking?.seatNumber ?? widget.seat ?? 'Gerbong 2 / Kursi 7A';
+  String get _trainName =>
+      widget.existingBooking?.trainName ??
+      widget.schedule?.name ??
+      'KA Argo Bromo Anggrek';
+  String get _trainClass =>
+      widget.existingBooking?.trainClass ?? widget.selectedClass ?? 'Eksekutif';
+  String get _originCode =>
+      widget.existingBooking?.originCode ??
+      widget.origin?.code ??
+      widget.schedule?.originCode ??
+      'GMR';
+  String get _destCode =>
+      widget.existingBooking?.destCode ??
+      widget.dest?.code ??
+      widget.schedule?.destCode ??
+      'SBI';
+  String get _departureTime =>
+      widget.existingBooking?.departureTime ??
+      widget.schedule?.departureTime ??
+      '08:20 WIB';
+  String get _arrivalTime =>
+      widget.existingBooking?.arrivalTime ??
+      widget.schedule?.arrivalTime ??
+      '16:25 WIB';
+  String get _travelDate =>
+      widget.existingBooking?.travelDate ?? widget.travelDate ?? 'Besok';
+  String get _passengerName =>
+      widget.existingBooking?.passengerName ??
+      widget.passengerName ??
+      'Penumpang TKA';
+  String get _passengerNik =>
+      widget.existingBooking?.passengerNik ??
+      widget.passengerNik ??
+      '3514062607090001';
+  String get _passengerPhone =>
+      widget.existingBooking?.passengerPhone ??
+      widget.passengerPhone ??
+      '+62 812-3456-7890';
+  String get _seatNumber =>
+      widget.existingBooking?.seatNumber ??
+      widget.seat ??
+      'Gerbong 2 / Kursi 7A';
 
   String _formatCurrency(int amount) {
     return 'Rp${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
@@ -161,8 +191,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // Buka Sheet Top Up jika saldo TKAPay kurang
   void _openTopUpSheet() {
     final amounts = [50000, 100000, 200000, 500000, 1000000];
-    int selectedAmount = _totalAmount > _userBalance ? (_totalAmount - _userBalance).clamp(50000, 1000000) : 100000;
-    
+    int selectedAmount = _totalAmount > _userBalance
+        ? (_totalAmount - _userBalance).clamp(50000, 1000000)
+        : 100000;
+
     // Sesuaikan pilihan terdekat dengan harga tiket
     if (!amounts.contains(selectedAmount)) {
       amounts.add(selectedAmount);
@@ -177,7 +209,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) => Padding(
-          padding: EdgeInsets.fromLTRB(24, 20, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            20,
+            24,
+            MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,7 +224,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 children: [
                   const Text(
                     'Top Up Saldo TKAPay Instan',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF062056),
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded),
@@ -212,7 +253,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     selectedColor: const Color(0xFF062056),
                     backgroundColor: const Color(0xFFF1F4F9),
                     labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : const Color(0xFF062056),
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF062056),
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -229,7 +272,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF062056),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: () async {
                     Navigator.of(ctx).pop();
@@ -241,7 +286,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Top Up ${_formatCurrency(selectedAmount)} Berhasil! Saldo sekarang: ${_formatCurrency(newBal)}'),
+                          content: Text(
+                            'Top Up ${_formatCurrency(selectedAmount)} Berhasil! Saldo sekarang: ${_formatCurrency(newBal)}',
+                          ),
                           backgroundColor: const Color(0xFF10B981),
                           behavior: SnackBarBehavior.floating,
                         ),
@@ -250,7 +297,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   },
                   child: Text(
                     'Top Up ${_formatCurrency(selectedAmount)} Sekarang',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -263,11 +313,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // Eksekusi Pembayaran Sukses
   Future<void> _processPayment() async {
+    if (_selectedMethod.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Silakan pilih salah satu metode pembayaran terlebih dahulu!',
+          ),
+          backgroundColor: Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     // Validasi saldo jika pakai TKAPay
     if (_selectedMethod == 'TKAPay' && _userBalance < _totalAmount) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Saldo TKAPay Anda kurang ${_formatCurrency(_totalAmount - _userBalance)}. Silakan Top Up terlebih dahulu.'),
+          content: Text(
+            'Saldo TKAPay Anda kurang ${_formatCurrency(_totalAmount - _userBalance)}. Silakan Top Up terlebih dahulu.',
+          ),
           backgroundColor: const Color(0xFFDC2626),
           behavior: SnackBarBehavior.floating,
           action: SnackBarAction(
@@ -289,7 +354,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
       builder: (ctx) => PopScope(
         canPop: false,
         child: Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           backgroundColor: Colors.white,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
@@ -301,7 +368,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   height: 50,
                   child: CircularProgressIndicator(
                     strokeWidth: 3.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF062056)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF062056),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -317,7 +386,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 Text(
                   'Menghubungkan ke gateway $_selectedMethod & memverifikasi transaksi tiket...',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
@@ -339,7 +412,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         paymentMethod: _selectedMethod,
         vaNumber: refCode,
       );
-      finalBooking = res ?? widget.existingBooking!.copyWith(status: 'Sudah Dibayar');
+      finalBooking =
+          res ?? widget.existingBooking!.copyWith(status: 'Sudah Dibayar');
     } else {
       // Buat booking baru yang langsung berstatus Sudah Dibayar
       finalBooking = await UserDatabaseService.createBooking(
@@ -415,7 +489,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
           children: [
             Icon(Icons.schedule_rounded, color: Color(0xFFF26716), size: 24),
             SizedBox(width: 10),
-            Text('Pesanan Disimpan!', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF062056))),
+            Text(
+              'Pesanan Disimpan!',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF062056),
+              ),
+            ),
           ],
         ),
         content: Column(
@@ -437,11 +518,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Metode: $_selectedMethod', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  Text(
+                    'Metode: $_selectedMethod',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text('Kode Bayar / VA: $refCode', style: const TextStyle(fontSize: 11, color: Color(0xFFC2410C))),
+                  Text(
+                    'Kode Bayar / VA: $refCode',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFFC2410C),
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  const Text('Silakan selesaikan pembayaran sebelum waktu habis di menu Pesanan.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  const Text(
+                    'Silakan selesaikan pembayaran sebelum waktu habis di menu Pesanan.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
                 ],
               ),
             ),
@@ -451,16 +547,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF062056),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () {
               Navigator.of(ctx).pop(); // Tutup dialog
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const DashboardScreen(initialTabIndex: 1)), // Tab Pesanan
+                MaterialPageRoute(
+                  builder: (_) => const DashboardScreen(initialTabIndex: 1),
+                ), // Tab Pesanan
                 (route) => false,
               );
             },
-            child: const Text('Ke Daftar Pesanan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Ke Daftar Pesanan',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -474,9 +580,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
       builder: (ctx) => PopScope(
         canPop: false,
         child: Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           backgroundColor: Colors.white,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
             child: Column(
@@ -489,16 +600,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFECFDF5),
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFA7F3D0), width: 2),
+                    border: Border.all(
+                      color: const Color(0xFFA7F3D0),
+                      width: 2,
+                    ),
                   ),
                   child: const Center(
-                    child: Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 38),
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFF10B981),
+                      size: 38,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
                 const Text(
                   'Pembayaran Berhasil!',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF062056)),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF062056),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 const Text(
@@ -521,10 +643,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Kode Booking (PNR)', style: TextStyle(fontSize: 11.5, color: Colors.grey)),
+                          const Text(
+                            'Kode Booking (PNR)',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Colors.grey,
+                            ),
+                          ),
                           Text(
                             booking.bookingId,
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF062056)),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                              color: Color(0xFF062056),
+                            ),
                           ),
                         ],
                       ),
@@ -532,10 +664,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Kereta & Kursi', style: TextStyle(fontSize: 11.5, color: Colors.grey)),
+                          const Text(
+                            'Kereta & Kursi',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Colors.grey,
+                            ),
+                          ),
                           Text(
                             '${booking.trainName} • ${booking.seatNumber}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11.5,
+                            ),
                           ),
                         ],
                       ),
@@ -543,10 +684,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Metode Pembayaran', style: TextStyle(fontSize: 11.5, color: Colors.grey)),
+                          const Text(
+                            'Metode Pembayaran',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Colors.grey,
+                            ),
+                          ),
                           Text(
                             booking.paymentMethod,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF10B981)),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11.5,
+                              color: Color(0xFF10B981),
+                            ),
                           ),
                         ],
                       ),
@@ -554,10 +705,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Total Pembayaran', style: TextStyle(fontSize: 11.5, color: Colors.grey)),
+                          const Text(
+                            'Total Pembayaran',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Colors.grey,
+                            ),
+                          ),
                           Text(
                             _formatCurrency(booking.totalAmount),
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5, color: Color(0xFFF26716)),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13.5,
+                              color: Color(0xFFF26716),
+                            ),
                           ),
                         ],
                       ),
@@ -566,10 +727,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Poin Diperoleh', style: TextStyle(fontSize: 11.5, color: Colors.grey)),
+                            const Text(
+                              'Poin Diperoleh',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Colors.grey,
+                              ),
+                            ),
                             Text(
                               '+$earnedPoints TKA Poin',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFFF26716)),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11.5,
+                                color: Color(0xFFF26716),
+                              ),
                             ),
                           ],
                         ),
@@ -587,18 +758,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF062056),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     onPressed: () {
                       Navigator.of(ctx).pop();
                       Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const DashboardScreen(initialTabIndex: 2)), // Tab Tiket Saya
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const DashboardScreen(initialTabIndex: 2),
+                        ), // Tab Tiket Saya
                         (route) => false,
                       );
                     },
                     child: const Text(
                       'Lihat E-Ticket & Boarding Pass',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13.5,
+                      ),
                     ),
                   ),
                 ),
@@ -607,13 +787,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   onPressed: () {
                     Navigator.of(ctx).pop();
                     Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const DashboardScreen(initialTabIndex: 0)), // Beranda
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const DashboardScreen(initialTabIndex: 0),
+                      ), // Beranda
                       (route) => false,
                     );
                   },
                   child: const Text(
                     'Kembali ke Beranda',
-                    style: TextStyle(color: Color(0xFF64748B), fontSize: 12.5, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -653,7 +840,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.timer_outlined, size: 14, color: Color(0xFFFFB74D)),
+                const Icon(
+                  Icons.timer_outlined,
+                  size: 14,
+                  color: Color(0xFFFFB74D),
+                ),
                 const SizedBox(width: 5),
                 Text(
                   _timerFormatted,
@@ -680,12 +871,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFFF26716)),
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: Color(0xFFF26716),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Selesaikan pembayaran dalam $_timerFormatted agar tiket tidak kedaluwarsa.',
-                    style: const TextStyle(fontSize: 11.5, color: Color(0xFFC2410C), fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFFC2410C),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -721,7 +920,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   _buildPaymentOptionCard(
                     id: 'QRIS',
                     title: 'QRIS (Instant Pay)',
-                    subtitle: 'BCA, Mandiri, BRI, BNI, GoPay, OVO, ShopeePay, DANA',
+                    subtitle:
+                        'BCA, Mandiri, BRI, BNI, GoPay, OVO, ShopeePay, DANA',
                     icon: Icons.qr_code_scanner_rounded,
                     iconBg: const Color(0xFFF0FDF4),
                     iconColor: const Color(0xFF16A34A),
@@ -736,12 +936,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   _buildPaymentOptionCard(
                     id: 'TKAPay',
                     title: 'TKAPay (Saldo Akun)',
-                    subtitle: _isLoadingBalance ? 'Memuat saldo...' : 'Saldo Anda: ${_formatCurrency(_userBalance)}',
+                    subtitle: _isLoadingBalance
+                        ? 'Memuat saldo...'
+                        : 'Saldo Anda: ${_formatCurrency(_userBalance)}',
                     icon: Icons.account_balance_wallet_rounded,
                     iconBg: const Color(0xFFEFF6FF),
                     iconColor: const Color(0xFF0284C7),
-                    badge: _userBalance >= _totalAmount ? 'Saldo Cukup' : 'Saldo Kurang',
-                    badgeColor: _userBalance >= _totalAmount ? const Color(0xFF10B981) : const Color(0xFFF26716),
+                    badge: _userBalance >= _totalAmount
+                        ? 'Saldo Cukup'
+                        : 'Saldo Kurang',
+                    badgeColor: _userBalance >= _totalAmount
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFF26716),
                     child: _buildTkaPayDetail(),
                   ),
 
@@ -755,7 +961,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     icon: Icons.account_balance_rounded,
                     iconBg: const Color(0xFFEFF6FF),
                     iconColor: const Color(0xFF005BAC),
-                    child: _buildVaDetail('BCA Virtual Account', '8277 0812 3456 7890'),
+                    child: _buildVaDetail(
+                      'BCA Virtual Account',
+                      '8277 0812 3456 7890',
+                    ),
                   ),
 
                   const SizedBox(height: 10),
@@ -768,7 +977,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     icon: Icons.account_balance_rounded,
                     iconBg: const Color(0xFFFFFBEB),
                     iconColor: const Color(0xFFD97706),
-                    child: _buildVaDetail('Mandiri Virtual Account', '8870 0812 9845 2311'),
+                    child: _buildVaDetail(
+                      'Mandiri Virtual Account',
+                      '8870 0812 9845 2311',
+                    ),
                   ),
 
                   const SizedBox(height: 10),
@@ -781,7 +993,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     icon: Icons.account_balance_rounded,
                     iconBg: const Color(0xFFEFF6FF),
                     iconColor: const Color(0xFF0284C7),
-                    child: _buildVaDetail('BRI Virtual Account', '1023 0812 7741 0924'),
+                    child: _buildVaDetail(
+                      'BRI Virtual Account',
+                      '1023 0812 7741 0924',
+                    ),
                   ),
 
                   const SizedBox(height: 10),
@@ -794,7 +1009,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     icon: Icons.account_balance_rounded,
                     iconBg: const Color(0xFFF0FDF4),
                     iconColor: const Color(0xFF059669),
-                    child: _buildVaDetail('BNI Virtual Account', '9881 0812 6542 3319'),
+                    child: _buildVaDetail(
+                      'BNI Virtual Account',
+                      '9881 0812 6542 3319',
+                    ),
                   ),
 
                   const SizedBox(height: 10),
@@ -860,7 +1078,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   color: const Color(0xFF062056),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.train_rounded, color: Colors.white, size: 16),
+                child: const Icon(
+                  Icons.train_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -883,22 +1105,40 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
                 child: Text(
                   _trainClass,
-                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF062056)),
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF062056),
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          
+
           // Timeline Stasiun Tanpa Overflow
           Row(
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_departureTime, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF062056))),
+                  Text(
+                    _departureTime,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      color: Color(0xFF062056),
+                    ),
+                  ),
                   const SizedBox(height: 1),
-                  Text(_originCode, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey.shade600)),
+                  Text(
+                    _originCode,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
                 ],
               ),
               Expanded(
@@ -908,13 +1148,36 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     children: [
                       Row(
                         children: [
-                          Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFF062056), shape: BoxShape.circle)),
-                          Expanded(child: Container(height: 1, color: Colors.grey.shade300)),
-                          const Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFF062056)),
+                          Container(
+                            width: 5,
+                            height: 5,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF062056),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              color: Colors.grey.shade300,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 12,
+                            color: Color(0xFF062056),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 2),
-                      const Text('Langsung', style: TextStyle(fontSize: 9, color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Langsung',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Color(0xFF2E7D32),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -922,14 +1185,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(_arrivalTime, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF062056))),
+                  Text(
+                    _arrivalTime,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      color: Color(0xFF062056),
+                    ),
+                  ),
                   const SizedBox(height: 1),
-                  Text(_destCode, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey.shade600)),
+                  Text(
+                    _destCode,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
-          
+
           const Divider(height: 18),
 
           Row(
@@ -938,7 +1215,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
               Expanded(
                 child: Text(
                   'Penumpang: $_passengerName • $_seatNumber',
-                  style: const TextStyle(fontSize: 11.5, color: Colors.black87, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w600,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -1024,9 +1305,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           if (badge != null) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
-                                color: (badgeColor ?? const Color(0xFF10B981)).withValues(alpha: 0.12),
+                                color: (badgeColor ?? const Color(0xFF10B981))
+                                    .withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -1044,15 +1329,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
                 Icon(
-                  isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                  color: isSelected ? const Color(0xFF062056) : Colors.grey.shade400,
+                  isSelected
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_off_rounded,
+                  color: isSelected
+                      ? const Color(0xFF062056)
+                      : Colors.grey.shade400,
                   size: 20,
                 ),
               ],
@@ -1110,7 +1402,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               width: 14,
                               height: 14,
                               decoration: BoxDecoration(
-                                color: ((row + col) % 2 == 0 || (row < 2 && col < 2) || (row > 4 && col < 2) || (row < 2 && col > 4))
+                                color:
+                                    ((row + col) % 2 == 0 ||
+                                        (row < 2 && col < 2) ||
+                                        (row > 4 && col < 2) ||
+                                        (row < 2 && col > 4))
                                     ? const Color(0xFF062056)
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(2),
@@ -1122,15 +1418,25 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ),
                     // Logo TKA Tengah
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xFF062056), width: 1.5),
+                        border: Border.all(
+                          color: const Color(0xFF062056),
+                          width: 1.5,
+                        ),
                       ),
                       child: const Text(
                         'TKA',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF062056)),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF062056),
+                        ),
                       ),
                     ),
                   ],
@@ -1139,7 +1445,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const SizedBox(height: 10),
               const Text(
                 'PT KERETA API TKA INDONESIA',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF062056)),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11.5,
+                  color: Color(0xFF062056),
+                ),
               ),
               const Text(
                 'NMID: ID1020083921094',
@@ -1181,18 +1491,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: isEnough ? const Color(0xFF166534) : const Color(0xFFC2410C),
+                  color: isEnough
+                      ? const Color(0xFF166534)
+                      : const Color(0xFFC2410C),
                 ),
               ),
               if (!isEnough)
                 TextButton(
                   onPressed: _openTopUpSheet,
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: const Text('+ Top Up Saldo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF062056))),
+                  child: const Text(
+                    '+ Top Up Saldo',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Color(0xFF062056),
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -1201,7 +1523,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
             isEnough
                 ? 'Saldo mencukupi! Pembayaran akan dipotong langsung dari saldo TKAPay Anda saat menekan tombol Bayar Sekarang.'
                 : 'Saldo tidak mencukupi untuk tiket ini. Silakan tekan + Top Up Saldo untuk mengisi saldo secara instan.',
-            style: TextStyle(fontSize: 11, color: isEnough ? const Color(0xFF166534) : const Color(0xFFC2410C), height: 1.3),
+            style: TextStyle(
+              fontSize: 11,
+              color: isEnough
+                  ? const Color(0xFF166534)
+                  : const Color(0xFFC2410C),
+              height: 1.3,
+            ),
           ),
         ],
       ),
@@ -1220,7 +1548,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Nomor Virtual Account', style: TextStyle(fontSize: 11, color: Colors.grey)),
+          const Text(
+            'Nomor Virtual Account',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          ),
           const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1235,9 +1566,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
               ),
               InkWell(
-                onTap: () => _copyToClipboard(vaNumber.replaceAll(' ', ''), 'Nomor Virtual Account'),
+                onTap: () => _copyToClipboard(
+                  vaNumber.replaceAll(' ', ''),
+                  'Nomor Virtual Account',
+                ),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF062056),
                     borderRadius: BorderRadius.circular(6),
@@ -1246,7 +1583,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     children: [
                       Icon(Icons.copy_rounded, size: 12, color: Colors.white),
                       SizedBox(width: 4),
-                      Text('Salin', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Salin',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1256,7 +1600,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 8),
           Text(
             'Transfer tepat sejumlah ${_formatCurrency(_totalAmount)}. Transaksi akan terverifikasi otomatis dalam 1 menit.',
-            style: const TextStyle(fontSize: 11, color: Colors.grey, height: 1.3),
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.grey,
+              height: 1.3,
+            ),
           ),
         ],
       ),
@@ -1273,12 +1621,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.notifications_active_outlined, size: 18, color: Color(0xFF062056)),
+          const Icon(
+            Icons.notifications_active_outlined,
+            size: 18,
+            color: Color(0xFF062056),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Notifikasi persetujuan transaksi $walletName akan dikirimkan ke nomor ponsel $_passengerPhone saat Anda menekan Bayar Sekarang.',
-              style: const TextStyle(fontSize: 11, color: Colors.black87, height: 1.3),
+              style: const TextStyle(
+                fontSize: 11,
+                color: Colors.black87,
+                height: 1.3,
+              ),
             ),
           ),
         ],
@@ -1311,24 +1667,53 @@ class _PaymentScreenState extends State<PaymentScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Tarif Tiket ($_trainClass)', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              Text(_formatCurrency(_totalAmount), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              Text(
+                'Tarif Tiket ($_trainClass)',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              Text(
+                _formatCurrency(_totalAmount),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Biaya Layanan & Pemesanan', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              Text('Gratis (Rp 0)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF10B981))),
+              Text(
+                'Biaya Layanan & Pemesanan',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              Text(
+                'Gratis (Rp 0)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF10B981),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Biaya Penanganan Gateway', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              Text('Gratis (Rp 0)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF10B981))),
+              Text(
+                'Biaya Penanganan Gateway',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              Text(
+                'Gratis (Rp 0)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF10B981),
+                ),
+              ),
             ],
           ),
           const Divider(height: 18),
@@ -1381,7 +1766,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Total Pembayaran', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  const Text(
+                    'Total Pembayaran',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
                   Text(
                     _formatCurrency(_totalAmount),
                     style: const TextStyle(
@@ -1397,8 +1785,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   // Tombol Bayar Nanti (Simpan Pesanan)
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       side: const BorderSide(color: Color(0xFF062056)),
                     ),
                     onPressed: _isProcessing ? null : _saveAsPendingOrder,
@@ -1417,8 +1810,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF062056),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       elevation: 2,
                     ),
                     onPressed: _isProcessing ? null : _processPayment,
