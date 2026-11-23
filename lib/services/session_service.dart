@@ -530,5 +530,14 @@ class SessionService {
       await prefs.setBool(_keyRememberMe, true);
       await prefs.setString(_keyIdentifier, savedId);
     }
+
+    SupabaseService.initialOAuthUserName = null;
+    SupabaseService.launchedFromOAuthCallback = false;
+    await SupabaseService.setPendingGoogleOAuth(false);
+    if (SupabaseService.isInitialized) {
+      try {
+        await SupabaseService.client.auth.signOut();
+      } catch (_) {}
+    }
   }
 }

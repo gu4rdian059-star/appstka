@@ -1,8 +1,14 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'dashboard/dashboard_screen.dart';
 import 'onboarding/onboarding_screen.dart';
+import 'services/auth_service.dart';
+import 'services/session_service.dart';
+import 'services/supabase_service.dart';
 
 class SplashScreen extends StatefulWidget {
   final VoidCallback? onAnimationComplete;
@@ -17,6 +23,8 @@ class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
   late final AnimationController _introController;
   late final AnimationController _ambientController;
+  StreamSubscription<AuthState>? _oauthSub;
+  bool _redirectedToDashboard = false;
 
   late final List<_SmokeParticle> _smokeParticles;
   late final List<_SparkParticle> _sparkParticles;
@@ -72,9 +80,63 @@ class _SplashScreenState extends State<SplashScreen>
         context,
       );
       if (mounted) {
-        _introController.forward(from: 0.0);
+        _checkOAuthSessionOrStartIntro();
       }
     });
+  }
+
+  Future<void> _checkOAuthSessionOrStartIntro() async {
+    if (SupabaseService.initialOAuthUserName != null) {
+      _goToDashboard(SupabaseService.initialOAuthUserName!);
+      return;
+    }
+
+    if (SupabaseService.isInitialized) {
+      final hasCode = SupabaseService.launchedFromOAuthCallback ||
+          Uri.base.queryParameters.containsKey('code') ||
+          Uri.base.fragment.contains('access_token=');
+      final user = SupabaseService.client.auth.currentUser;
+      if (hasCode && user != null) {
+        await AuthService.syncGoogleUserSession(user);
+        final name = await SessionService.getUserName();
+        if (mounted) _goToDashboard(name);
+        return;
+      }
+
+      _oauthSub = SupabaseService.client.auth.onAuthStateChange.listen((data) async {
+        if (!mounted || _redirectedToDashboard) return;
+        if (data.event == AuthChangeEvent.signedIn && data.session?.user != null) {
+          final hasOAuthUrl = SupabaseService.launchedFromOAuthCallback ||
+              Uri.base.queryParameters.containsKey('code') ||
+              Uri.base.fragment.contains('access_token=');
+          final provider =
+              data.session!.user.appMetadata['provider']?.toString() ?? '';
+          if (hasOAuthUrl || provider == 'google') {
+            await AuthService.syncGoogleUserSession(data.session!.user);
+            final name = await SessionService.getUserName();
+            if (mounted) _goToDashboard(name);
+          }
+        }
+      });
+    }
+
+    if (mounted && !_redirectedToDashboard) {
+      _introController.forward(from: 0.0);
+    }
+  }
+
+  void _goToDashboard(String userName) {
+    if (!mounted || _redirectedToDashboard) return;
+    _redirectedToDashboard = true;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 500),
+        pageBuilder: (_, _, _) => DashboardScreen(userName: userName),
+        transitionsBuilder: (_, animation, _, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
   }
 
   void _navigateToOnboarding() {
@@ -238,6 +300,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
+    _oauthSub?.cancel();
     _introController.dispose();
     _ambientController.dispose();
     super.dispose();

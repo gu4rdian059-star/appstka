@@ -296,8 +296,11 @@ class AuthService {
       final client = SupabaseService.client;
       String? redirectUri;
 
+      await SupabaseService.setPendingGoogleOAuth(true);
+
       if (kIsWeb) {
-        redirectUri = null;
+        // Gunakan origin saat ini (misal http://localhost:5500) agar redirect kembali ke port yang sama
+        redirectUri = Uri.base.origin;
       } else if (defaultTargetPlatform == TargetPlatform.windows ||
           defaultTargetPlatform == TargetPlatform.macOS ||
           defaultTargetPlatform == TargetPlatform.linux) {
@@ -314,8 +317,12 @@ class AuthService {
           'prompt': 'select_account',
         },
       );
+      if (!launched) {
+        await SupabaseService.setPendingGoogleOAuth(false);
+      }
       return launched;
     } catch (e) {
+      await SupabaseService.setPendingGoogleOAuth(false);
       debugPrint('⚠️ Catatan launchGoogleOAuth Supabase: $e');
       return false;
     }
