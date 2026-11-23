@@ -8,6 +8,9 @@ import '../orders/order_detail_screen.dart';
 import '../tickets/my_tickets_screen.dart';
 import '../profile/profile_screen.dart';
 import '../notifications/notifications_screen.dart';
+import '../tracking/live_map_screen.dart';
+import '../tracking/train_schedule_screen.dart';
+import '../tracking/favorites_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String? userName;
@@ -34,7 +37,11 @@ class _DashboardScreenState extends State<DashboardScreen>
   List<BookingModel> _activeBookings = [];
   bool _isLoadingBookings = true;
 
-  int _activeNavIndex = 0; // 0: Beranda, 1: Pesanan, 2: Tiket Saya, 3: Akun
+  int _activeNavIndex = 0; // 0: Live Map (Utama), 1: Jadwal, 2: Favorit, 3: Tiket, 4: Profil
+  int _ticketHubSubTab = 0; // 0: Beranda Pesan, 1: Pesanan Saya, 2: E-Tiket
+  final ValueNotifier<MapFocusRequest?> _mapFocusNotifier =
+      ValueNotifier<MapFocusRequest?>(null);
+  int _focusNonce = 0;
   int _selectedTripType = 0; // 0: Sekali Jalan, 1: Pulang Pergi
   String _selectedClassFilter = 'Semua';
   bool _returnTripChecked = false;
@@ -241,7 +248,23 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     _animController.dispose();
+    _mapFocusNotifier.dispose();
     super.dispose();
+  }
+
+  void _trackTrainOnLiveMap(String tripId) {
+    setState(() => _activeNavIndex = 0);
+    _focusNonce++;
+    _mapFocusNotifier.value = MapFocusRequest(tripId: tripId, nonce: _focusNonce);
+  }
+
+  void _focusStationOnLiveMap(String stationCode) {
+    setState(() => _activeNavIndex = 0);
+    _focusNonce++;
+    _mapFocusNotifier.value = MapFocusRequest(
+      stationCode: stationCode,
+      nonce: _focusNonce,
+    );
   }
 
   void _swapStations() {
@@ -296,31 +319,43 @@ class _DashboardScreenState extends State<DashboardScreen>
       curve: const Interval(0.55, 1.0, curve: Curves.easeOutCubic),
     );
 
+    final isMapTab = _activeNavIndex == 0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: Column(
-            children: [
-              // Konten Tab Utama
-              Expanded(
-                child: _buildCurrentTab(
-                  context,
-                  headerAnim: headerAnim,
-                  walletAnim: walletAnim,
-                  menuAnim: menuAnim,
-                  searchCardAnim: searchCardAnim,
-                  ticketAnim: ticketAnim,
-                  promoAnim: promoAnim,
-                ),
-              ),
-
-              // ==================== 8. BOTTOM NAVIGATION BAR ====================
-              _buildBottomNavigationBar(),
-            ],
+      body: Column(
+        children: [
+          // Konten Tab Utama (Full width untuk Live Map, responsif untuk tab lain)
+          Expanded(
+            child: isMapTab
+                ? _buildCurrentTab(
+                    context,
+                    headerAnim: headerAnim,
+                    walletAnim: walletAnim,
+                    menuAnim: menuAnim,
+                    searchCardAnim: searchCardAnim,
+                    ticketAnim: ticketAnim,
+                    promoAnim: promoAnim,
+                  )
+                : Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 680),
+                      child: _buildCurrentTab(
+                        context,
+                        headerAnim: headerAnim,
+                        walletAnim: walletAnim,
+                        menuAnim: menuAnim,
+                        searchCardAnim: searchCardAnim,
+                        ticketAnim: ticketAnim,
+                        promoAnim: promoAnim,
+                      ),
+                    ),
+                  ),
           ),
-        ),
+
+          // ==================== 8. BOTTOM NAVIGATION BAR ====================
+          _buildBottomNavigationBar(),
+        ],
       ),
     );
   }
@@ -336,19 +371,17 @@ class _DashboardScreenState extends State<DashboardScreen>
   }) {
     switch (_activeNavIndex) {
       case 1:
-        return OrdersScreen(
-          embedded: true,
-          onNavigateToTickets: () => setState(() => _activeNavIndex = 2),
+        return TrainScheduleScreen(
+          onTrackTrainOnMap: _trackTrainOnLiveMap,
+          onFocusStationOnMap: _focusStationOnLiveMap,
         );
       case 2:
-        return const MyTicketsScreen(embedded: true);
-      case 3:
-        return ProfileScreen(
-          embedded: true,
-          onOpenOrders: () => setState(() => _activeNavIndex = 1),
+        return FavoritesScreen(
+          onTrackTrainOnMap: _trackTrainOnLiveMap,
+          onFocusStationOnMap: _focusStationOnLiveMap,
         );
-      default:
-        return _buildHomeScrollView(
+      case 3:
+        return _buildTicketHubTab(
           context,
           headerAnim: headerAnim,
           walletAnim: walletAnim,
@@ -357,7 +390,113 @@ class _DashboardScreenState extends State<DashboardScreen>
           ticketAnim: ticketAnim,
           promoAnim: promoAnim,
         );
+      case 4:
+        return ProfileScreen(
+          embedded: true,
+          onOpenOrders: () => setState(() {
+            _activeNavIndex = 3;
+            _ticketHubSubTab = 1;
+          }),
+          onOpenFavorites: () => setState(() => _activeNavIndex = 2),
+          onTrackTrainOnMap: _trackTrainOnLiveMap,
+          onFocusStationOnMap: _focusStationOnLiveMap,
+        );
+      default:
+        return LiveMapScreen(
+          focusRequestNotifier: _mapFocusNotifier,
+          onOpenOrders: () => setState(() {
+            _activeNavIndex = 3;
+            _ticketHubSubTab = 1;
+          }),
+          onOpenTickets: () => setState(() {
+            _activeNavIndex = 3;
+            _ticketHubSubTab = 2;
+          }),
+        );
     }
+  }
+
+  Widget _buildTicketHubTab(
+    BuildContext context, {
+    required Animation<double> headerAnim,
+    required Animation<double> walletAnim,
+    required Animation<double> menuAnim,
+    required Animation<double> searchCardAnim,
+    required Animation<double> ticketAnim,
+    required Animation<double> promoAnim,
+  }) {
+    return Column(
+      children: [
+        Container(
+          color: const Color(0xFF062056),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          child: SafeArea(
+            bottom: false,
+            child: Row(
+              children: [
+                _hubChip(0, 'Pesan Tiket', Icons.search_rounded),
+                const SizedBox(width: 8),
+                _hubChip(1, 'Pesanan', Icons.receipt_long_rounded),
+                const SizedBox(width: 8),
+                _hubChip(2, 'E-Tiket', Icons.confirmation_number_rounded),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: _ticketHubSubTab == 1
+              ? OrdersScreen(
+                  embedded: true,
+                  onNavigateToTickets: () =>
+                      setState(() => _ticketHubSubTab = 2),
+                )
+              : _ticketHubSubTab == 2
+                  ? const MyTicketsScreen(embedded: true)
+                  : _buildHomeScrollView(
+                      context,
+                      headerAnim: headerAnim,
+                      walletAnim: walletAnim,
+                      menuAnim: menuAnim,
+                      searchCardAnim: searchCardAnim,
+                      ticketAnim: ticketAnim,
+                      promoAnim: promoAnim,
+                    ),
+        ),
+      ],
+    );
+  }
+
+  Widget _hubChip(int index, String label, IconData icon) {
+    final sel = _ticketHubSubTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _ticketHubSubTab = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: sel
+                ? const Color(0xFFF26716)
+                : Colors.white.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14, color: Colors.white),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildHomeScrollView(
@@ -2381,24 +2520,29 @@ class _DashboardScreenState extends State<DashboardScreen>
             children: [
               _buildNavItem(
                 index: 0,
-                icon: Icons.home_rounded,
-                label: 'Beranda',
+                icon: Icons.map_rounded,
+                label: 'Live Map',
               ),
               _buildNavItem(
                 index: 1,
-                icon: Icons.receipt_long_rounded,
-                label: 'Pesanan',
+                icon: Icons.schedule_rounded,
+                label: 'Jadwal',
               ),
               _buildNavItem(
                 index: 2,
-                icon: Icons.confirmation_number_rounded,
-                label: 'Tiket Saya',
-                hasBadge: true,
+                icon: Icons.favorite_rounded,
+                label: 'Favorit',
               ),
               _buildNavItem(
                 index: 3,
+                icon: Icons.confirmation_number_rounded,
+                label: 'Tiket',
+                hasBadge: _activeBookings.isNotEmpty,
+              ),
+              _buildNavItem(
+                index: 4,
                 icon: Icons.person_rounded,
-                label: 'Akun',
+                label: 'Profil',
               ),
             ],
           ),

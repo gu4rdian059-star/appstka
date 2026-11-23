@@ -1,20 +1,28 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/app_env.dart';
 
 class SupabaseService {
-  /// URL proyek Supabase (didapat dari ID project: lbjpvbwmctzuhkqdidpt)
-  static const String supabaseUrl = 'https://lbjpvbwmctzuhkqdidpt.supabase.co';
+  static bool _initialized = false;
 
-  /// Kunci Anon / Public Key dari dashboard Supabase Anda:
-  /// Project Settings -> API -> Project API keys -> anon (public)
-  static const String supabaseAnonKey = 'sb_publishable_hjlSBckeJ06uoUd6BOdTHA_WhNjy8u1';
+  /// URL proyek Supabase (dibaca dari .env via AppEnv)
+  static String get supabaseUrl => AppEnv.supabaseUrl;
+
+  /// Kunci Anon / Publishable Key (dibaca dari .env via AppEnv)
+  static String get supabaseAnonKey => AppEnv.supabaseAnonKey;
+
+  static bool get isInitialized => _initialized;
 
   /// Inisialisasi Supabase saat aplikasi Flutter pertama kali dibuka
   static Future<void> initialize() async {
+    if (_initialized) return;
+
+    await AppEnv.load();
+
     if (supabaseAnonKey == 'TEMPEL_ANON_KEY_DI_SINI' || supabaseAnonKey.isEmpty) {
       debugPrint(
-        '⚠️ Supabase Anon Key belum diisi di lib/services/supabase_service.dart. '
-        'Aplikasi tetap berjalan normal, silakan isi anon key untuk mengaktifkan koneksi database.',
+        '⚠️ Supabase Anon Key belum diisi di .env. '
+        'Aplikasi berjalan dengan mode fallback lokal.',
       );
       return;
     }
@@ -24,13 +32,13 @@ class SupabaseService {
         url: supabaseUrl,
         publishableKey: supabaseAnonKey,
       );
+      _initialized = true;
       debugPrint('✅ Supabase berhasil terhubung: $supabaseUrl');
     } catch (e) {
       debugPrint('❌ Gagal inisialisasi Supabase: $e');
     }
   }
 
-  /// Instance Supabase client untuk query data, auth, dll
+  /// Instance Supabase client untuk query data, auth, realtime, dll
   static SupabaseClient get client => Supabase.instance.client;
 }
-

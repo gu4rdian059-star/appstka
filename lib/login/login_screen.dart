@@ -1060,7 +1060,29 @@ class _LoginScreenState extends State<LoginScreen>
           ],
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
+
+        // Akses Cepat Live Map tanpa Login
+        TextButton.icon(
+          onPressed: () {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => const DashboardScreen(initialTabIndex: 0),
+              ),
+            );
+          },
+          icon: const Icon(Icons.map_rounded, size: 16, color: Color(0xFF062056)),
+          label: const Text(
+            'Jelajahi Live Map Indonesia (Tanpa Login)',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF062056),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 8),
 
         // Butuh Bantuan Layanan Pelanggan
         Row(
