@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/session_service.dart';
 import '../services/user_db_service.dart';
+import '../transitions/page_transitions.dart';
 import 'qris_payment_screen.dart';
 import 'transaction_status_screen.dart';
 
@@ -20,6 +21,8 @@ class PaymentMethodScreen extends StatefulWidget {
   final String selectedSeat;
   final String seatSide;
   final int totalAmount;
+  final TrainScheduleModel? returnTrain;
+  final DateTime? returnDate;
 
   const PaymentMethodScreen({
     super.key,
@@ -37,6 +40,8 @@ class PaymentMethodScreen extends StatefulWidget {
     required this.selectedSeat,
     required this.seatSide,
     required this.totalAmount,
+    this.returnTrain,
+    this.returnDate,
   });
 
   @override
@@ -215,6 +220,28 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
         totalFare: widget.totalAmount,
       );
 
+      // 2. Jika tiket Pulang-Pergi, simpan juga tiket perjalanan pulangnya
+      if (widget.returnTrain != null) {
+        try {
+          final retDate = widget.returnDate ?? widget.travelDate;
+          await UserDatabaseService.createBookingOrder(
+            schedule: widget.returnTrain!,
+            selectedClass: widget.returnTrain!.availableClasses.first,
+            bookerName: widget.passengerName,
+            bookerEmail: widget.bookerEmail,
+            bookerPhone: widget.bookerPhone,
+            manifestPassengers: _manifestPassengers,
+            travelDate: _formatDate(retDate),
+            status: 'Sudah Dibayar',
+            paymentMethod: _selectedMethod,
+            vaNumber: vaNumber,
+            totalFare: widget.returnTrain!.baseFare * _manifestPassengers.length,
+          );
+        } catch (retErr) {
+          debugPrint('Catatan simpan tiket pulang: $retErr');
+        }
+      }
+
       // 3. Potong saldo jika bayar pakai TKAPay
       if (_selectedMethod == 'TKAPay') {
         final newBal = _userBalance - widget.totalAmount;
@@ -225,26 +252,22 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
       Navigator.of(context).pop(); // Tutup dialog loading
       setState(() => _isProcessing = false);
 
-      // Pindah ke Gambar 4 Kolom 3: Status Transaksi & Pembayaran
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              TransactionStatusScreen(
-                booking: primaryBooking,
-                transactionNumber: referenceNumber,
-                paymentMethod: _selectedMethod,
-                paidAmount: widget.totalAmount,
-                seatNumber: widget.selectedSeat,
-                passengerName:
-                    _manifestPassengers[0]['name'] ?? widget.passengerName,
-                passengerNik:
-                    _manifestPassengers[0]['id'] ?? widget.passengerNik,
-                passengers: _manifestPassengers,
-              ),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
+      // Pindah ke Gambar 4 Kolom 3: Status Transaksi & Pembayaran dengan animasi elegan
+      AppPageRoute.pushReplacement(
+        context,
+        TransactionStatusScreen(
+          booking: primaryBooking,
+          transactionNumber: referenceNumber,
+          paymentMethod: _selectedMethod,
+          paidAmount: widget.totalAmount,
+          seatNumber: widget.selectedSeat,
+          passengerName:
+              _manifestPassengers[0]['name'] ?? widget.passengerName,
+          passengerNik:
+              _manifestPassengers[0]['id'] ?? widget.passengerNik,
+          passengers: _manifestPassengers,
         ),
+        type: AppPageTransitionType.zoom,
       );
     } catch (e) {
       if (!mounted) return;

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../services/user_db_service.dart';
+import '../intercity/antar_kota_screen.dart';
+import '../transitions/page_transitions.dart';
 import 'passenger_form_screen.dart';
 
 class TrainSearchResultsScreen extends StatefulWidget {
@@ -9,6 +11,10 @@ class TrainSearchResultsScreen extends StatefulWidget {
   final DateTime travelDate;
   final int adultCount;
   final int infantCount;
+  final bool isRoundTrip;
+  final DateTime? returnDate;
+  final TrainScheduleModel? departureTrain;
+  final DateTime? departureDate;
 
   const TrainSearchResultsScreen({
     super.key,
@@ -17,6 +23,10 @@ class TrainSearchResultsScreen extends StatefulWidget {
     required this.travelDate,
     this.adultCount = 1,
     this.infantCount = 0,
+    this.isRoundTrip = false,
+    this.returnDate,
+    this.departureTrain,
+    this.departureDate,
   });
 
   @override
@@ -26,6 +36,13 @@ class TrainSearchResultsScreen extends StatefulWidget {
 
 class _TrainSearchResultsScreenState extends State<TrainSearchResultsScreen> {
   late DateTime _selectedDate;
+  late StationModel _origin;
+  late StationModel _dest;
+  late int _adultCount;
+  late int _infantCount;
+  late bool _isRoundTrip;
+  DateTime? _returnDate;
+
   String _selectedClassFilter = 'Semua'; // 'Semua', 'Eksekutif', 'Bisnis', 'Ekonomi'
   bool _hideRunOutTrains = false;
   String _activeSort = 'earliest'; // 'earliest', 'lowest_price', 'fastest'
@@ -37,6 +54,12 @@ class _TrainSearchResultsScreenState extends State<TrainSearchResultsScreen> {
   void initState() {
     super.initState();
     _selectedDate = widget.travelDate;
+    _origin = widget.origin;
+    _dest = widget.dest;
+    _adultCount = widget.adultCount;
+    _infantCount = widget.infantCount;
+    _isRoundTrip = widget.isRoundTrip;
+    _returnDate = widget.returnDate;
     _fetchTrains();
   }
 
@@ -44,8 +67,8 @@ class _TrainSearchResultsScreenState extends State<TrainSearchResultsScreen> {
     setState(() => _isLoading = true);
     await Future.delayed(const Duration(milliseconds: 200));
     final results = await UserDatabaseService.searchTrains(
-      originCode: widget.origin.code,
-      destCode: widget.dest.code,
+      originCode: _origin.code,
+      destCode: _dest.code,
     );
 
     // Jadwal bervariasi secara dinamis mengikuti tanggal yang dipilih
@@ -448,6 +471,449 @@ class _TrainSearchResultsScreenState extends State<TrainSearchResultsScreen> {
     return list;
   }
 
+  void _showEditRouteBottomSheet() {
+    StationModel tempOrigin = _origin;
+    StationModel tempDest = _dest;
+    DateTime tempDate = _selectedDate;
+    int tempAdult = _adultCount;
+    int tempInfant = _infantCount;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Ubah Rute & Perjalanan',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF062056),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Stasiun Asal & Tujuan + Swap Button
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.centerRight,
+                      children: [
+                        Column(
+                          children: [
+                            // Asal
+                            InkWell(
+                              onTap: () async {
+                                final picked =
+                                    await showModalBottomSheet<StationModel>(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => StationPickerModal(
+                                    title: 'Pilih Stasiun Asal',
+                                    forbiddenStationCode: tempDest.code,
+                                  ),
+                                );
+                                if (picked != null) {
+                                  setSheetState(() => tempOrigin = picked);
+                                }
+                              },
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.radio_button_checked_rounded,
+                                    size: 18,
+                                    color: Color(0xFF0256B8),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'STASIUN ASAL',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                        Text(
+                                          '${tempOrigin.name} (${tempOrigin.code})',
+                                          style: const TextStyle(
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF062056),
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          tempOrigin.city,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Divider(height: 1),
+                            ),
+                            // Tujuan
+                            InkWell(
+                              onTap: () async {
+                                final picked =
+                                    await showModalBottomSheet<StationModel>(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => StationPickerModal(
+                                    title: 'Pilih Stasiun Tujuan',
+                                    forbiddenStationCode: tempOrigin.code,
+                                  ),
+                                );
+                                if (picked != null) {
+                                  setSheetState(() => tempDest = picked);
+                                }
+                              },
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.location_on_rounded,
+                                    size: 18,
+                                    color: Color(0xFFEA580C),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'STASIUN TUJUAN',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                        Text(
+                                          '${tempDest.name} (${tempDest.code})',
+                                          style: const TextStyle(
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF062056),
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          tempDest.city,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Swap button
+                        Positioned(
+                          right: 8,
+                          child: InkWell(
+                            onTap: () {
+                              setSheetState(() {
+                                final swap = tempOrigin;
+                                tempOrigin = tempDest;
+                                tempDest = swap;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF062056),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF062056)
+                                        .withValues(alpha: 0.2),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.swap_vert_rounded,
+                                size: 18,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Tanggal Keberangkatan
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: tempDate,
+                        firstDate: DateTime.now(),
+                        lastDate:
+                            DateTime.now().add(const Duration(days: 90)),
+                      );
+                      if (picked != null) {
+                        setSheetState(() => tempDate = picked);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_month_rounded,
+                            size: 18,
+                            color: Color(0xFF0256B8),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'TANGGAL KEBERANGKATAN',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                                Text(
+                                  _formatDateDisplay(tempDate),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF062056),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 13,
+                            color: Colors.grey,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Penumpang Counter
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.people_alt_rounded,
+                              size: 18,
+                              color: Color(0xFF0256B8),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'PENUMPANG DEWASA',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                                Text(
+                                  '$tempAdult Dewasa',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF062056),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.remove_circle_outline_rounded,
+                                size: 22,
+                              ),
+                              color: tempAdult > 1
+                                  ? const Color(0xFF0256B8)
+                                  : Colors.grey.shade400,
+                              onPressed: tempAdult > 1
+                                  ? () => setSheetState(() => tempAdult--)
+                                  : null,
+                            ),
+                            Text(
+                              '$tempAdult',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.add_circle_outline_rounded,
+                                size: 22,
+                              ),
+                              color: tempAdult < 4
+                                  ? const Color(0xFF0256B8)
+                                  : Colors.grey.shade400,
+                              onPressed: tempAdult < 4
+                                  ? () => setSheetState(() => tempAdult++)
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Tombol Terapkan
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF062056),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        setState(() {
+                          _origin = tempOrigin;
+                          _dest = tempDest;
+                          _selectedDate = tempDate;
+                          _adultCount = tempAdult;
+                          _infantCount = tempInfant;
+                        });
+                        _fetchTrains();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '✅ Rute diubah ke ${tempOrigin.name} ➔ ${tempDest.name}',
+                            ),
+                            backgroundColor: const Color(0xFF062056),
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        'Terapkan & Cari Kereta',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _onTrainSelected(TrainScheduleModel train) {
     // =========================================================================
     // VALIDASI TIKET HABIS (Sesuai Permintaan User)
@@ -511,30 +977,60 @@ class _TrainSearchResultsScreenState extends State<TrainSearchResultsScreen> {
       return;
     }
 
-    // Jika tiket tersedia, lanjut ke Gambar 2: Data Penumpang
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            PassengerFormScreen(
-              train: train,
-              origin: widget.origin,
-              dest: widget.dest,
-              travelDate: _selectedDate,
-              adultCount: widget.adultCount,
-              infantCount: widget.infantCount,
-            ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-                .animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutCubic,
-                  ),
-                ),
-            child: child,
-          );
-        },
+    // Jika perjalanan Pulang Pergi dan baru memilih Kereta Pergi (Langkah 1)
+    if (_isRoundTrip &&
+        widget.departureTrain == null &&
+        widget.returnDate != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '✅ Kereta Pergi dipilih: ${train.name}. Sekarang pilih Kereta Pulang!',
+          ),
+          backgroundColor: const Color(0xFF062056),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      AppPageRoute.push(
+        context,
+        TrainSearchResultsScreen(
+          origin: _dest,
+          dest: _origin,
+          travelDate:
+              _returnDate ?? _selectedDate.add(const Duration(days: 1)),
+          adultCount: _adultCount,
+          infantCount: _infantCount,
+          isRoundTrip: true,
+          returnDate: _returnDate,
+          departureTrain: train,
+          departureDate: _selectedDate,
+        ),
+      );
+      return;
+    }
+
+    // Jika Sekali Jalan atau sudah memilih Kereta Pulang (Langkah 2)
+    final depTrain = widget.departureTrain ?? train;
+    final retTrain = widget.departureTrain != null ? train : null;
+    final depDate = widget.departureDate ?? _selectedDate;
+    final retDate =
+        widget.departureTrain != null ? _selectedDate : _returnDate;
+    final orig = widget.departureTrain != null ? _dest : _origin;
+    final dst = widget.departureTrain != null ? _origin : _dest;
+
+    // Jika tiket tersedia, lanjut ke Data Penumpang dengan transisi animasi elegan
+    AppPageRoute.push(
+      context,
+      PassengerFormScreen(
+        train: depTrain,
+        origin: orig,
+        dest: dst,
+        travelDate: depDate,
+        adultCount: _adultCount,
+        infantCount: _infantCount,
+        returnTrain: retTrain,
+        returnDate: retDate,
       ),
     );
   }
@@ -697,10 +1193,11 @@ class _TrainSearchResultsScreenState extends State<TrainSearchResultsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final routeTitle =
-        '${widget.origin.name} (${widget.origin.code}) ➔ ${widget.dest.name} (${widget.dest.code})';
+    final orig = widget.departureTrain != null ? _dest : _origin;
+    final dst = widget.departureTrain != null ? _origin : _dest;
+    final routeTitle = '${orig.name} (${orig.code}) ➔ ${dst.name} (${dst.code})';
     final passengersSubtitle =
-        '${widget.adultCount} Dewasa${widget.infantCount > 0 ? ', ${widget.infantCount} Bayi' : ', 0 Bayi'}';
+        '$_adultCount Dewasa${_infantCount > 0 ? ', $_infantCount Bayi' : ', 0 Bayi'} • ${_formatDateDisplay(_selectedDate)}';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -711,44 +1208,131 @@ class _TrainSearchResultsScreenState extends State<TrainSearchResultsScreen> {
           icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF062056)),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        title: InkWell(
+          onTap: _showEditRouteBottomSheet,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    routeTitle,
-                    style: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF062056),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        routeTitle,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF062056),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEFF6FF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.edit_outlined,
+                        size: 15,
+                        color: Color(0xFF0256B8),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.edit_outlined,
-                  size: 16,
-                  color: Color(0xFF0256B8),
+                const SizedBox(height: 1),
+                Text(
+                  passengersSubtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.normal,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 1),
-            Text(
-              passengersSubtitle,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
       body: Column(
         children: [
+          // Banner Langkah Pulang-Pergi
+          if (_isRoundTrip)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: widget.departureTrain == null
+                    ? const Color(0xFFEFF6FF)
+                    : const Color(0xFFFFF7ED),
+                border: Border(
+                  bottom: BorderSide(
+                    color: widget.departureTrain == null
+                        ? const Color(0xFFBFDBFE)
+                        : const Color(0xFFFED7AA),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: widget.departureTrain == null
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFFEA580C),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      widget.departureTrain == null
+                          ? Icons.arrow_forward_rounded
+                          : Icons.sync_alt_rounded,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.departureTrain == null
+                              ? 'LANGKAH 1 DARI 2: PILIH KERETA PERGI'
+                              : 'LANGKAH 2 DARI 2: PILIH KERETA PULANG',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: widget.departureTrain == null
+                                ? const Color(0xFF1D4ED8)
+                                : const Color(0xFFC2410C),
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          widget.departureTrain == null
+                              ? 'Rute Pergi: ${widget.origin.name} (${widget.origin.code}) ➔ ${widget.dest.name} (${widget.dest.code})'
+                              : 'Pergi: ${widget.departureTrain!.name} • Rute Pulang: ${widget.origin.name} (${widget.origin.code}) ➔ ${widget.dest.name} (${widget.dest.code})',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: widget.departureTrain == null
+                                ? const Color(0xFF1E40AF)
+                                : const Color(0xFF9A3412),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // 1. Horizontal Date Bar (Sat, 14 Nov, Sun, 15 Nov, dll)
           _buildDateSelector(),
 

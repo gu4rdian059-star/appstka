@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../services/user_db_service.dart';
+import '../transitions/page_transitions.dart';
 import '../booking/train_search_results_screen.dart';
 
 class AntarKotaScreen extends StatefulWidget {
   final String? initialOrigin;
   final String? initialDestination;
   final DateTime? initialDate;
+  final bool? initialRoundTrip;
+  final DateTime? initialReturnDate;
 
   const AntarKotaScreen({
     super.key,
     this.initialOrigin,
     this.initialDestination,
     this.initialDate,
+    this.initialRoundTrip,
+    this.initialReturnDate,
   });
 
   @override
@@ -38,6 +43,12 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     _departureDate = widget.initialDate ?? today.add(const Duration(days: 1));
+    if (widget.initialRoundTrip == true) {
+      _isRoundTrip = true;
+      _returnDate =
+          widget.initialReturnDate ??
+          _departureDate.add(const Duration(days: 2));
+    }
     _loadStationsAndRecent();
   }
 
@@ -121,7 +132,7 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _StationPickerModal(
+      builder: (ctx) => StationPickerModal(
         title: isOrigin
             ? 'Pilih Stasiun Keberangkatan'
             : 'Pilih Stasiun Tujuan',
@@ -328,32 +339,17 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
 
     if (!mounted) return;
 
-    // 2. Masuk ke Halaman Hasil Pencarian Kereta (Gambar 1)
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            TrainSearchResultsScreen(
-              origin: _originStation!,
-              dest: _destStation!,
-              travelDate: _departureDate,
-              adultCount: _adultCount,
-              infantCount: _infantCount,
-            ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position:
-                Tween<Offset>(
-                  begin: const Offset(1.0, 0.0),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeInOutCubic,
-                  ),
-                ),
-            child: child,
-          );
-        },
+    // 2. Masuk ke Halaman Hasil Pencarian Kereta dengan animasi elegan
+    AppPageRoute.push(
+      context,
+      TrainSearchResultsScreen(
+        origin: _originStation!,
+        dest: _destStation!,
+        travelDate: _departureDate,
+        adultCount: _adultCount,
+        infantCount: _infantCount,
+        isRoundTrip: _isRoundTrip,
+        returnDate: _isRoundTrip ? _returnDate : null,
       ),
     );
   }
@@ -708,12 +704,177 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Detail Perjalanan',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF062056),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Detail Perjalanan',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF062056),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _isRoundTrip
+                                        ? const Color(0xFFFFF7ED)
+                                        : const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    _isRoundTrip
+                                        ? 'Pulang-Pergi (2 Tiket)'
+                                        : 'Sekali Jalan (1 Tiket)',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isRoundTrip
+                                          ? const Color(0xFFEA580C)
+                                          : const Color(0xFF2563EB),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+
+                            // Segment Tab: Sekali Jalan vs Pulang Pergi
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F4F9),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _isRoundTrip = false;
+                                          _returnDate = null;
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 9,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: !_isRoundTrip
+                                              ? Colors.white
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          boxShadow: !_isRoundTrip
+                                              ? [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withValues(
+                                                          alpha: 0.06,
+                                                        ),
+                                                    blurRadius: 6,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ]
+                                              : null,
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.arrow_forward_rounded,
+                                              size: 14,
+                                              color: !_isRoundTrip
+                                                  ? const Color(0xFF062056)
+                                                  : Colors.grey.shade500,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Sekali Jalan',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: !_isRoundTrip
+                                                    ? const Color(0xFF062056)
+                                                    : Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _isRoundTrip = true;
+                                          _returnDate ??= _departureDate.add(
+                                            const Duration(days: 2),
+                                          );
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 9,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _isRoundTrip
+                                              ? Colors.white
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          boxShadow: _isRoundTrip
+                                              ? [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withValues(
+                                                          alpha: 0.06,
+                                                        ),
+                                                    blurRadius: 6,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ]
+                                              : null,
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.sync_alt_rounded,
+                                              size: 14,
+                                              color: _isRoundTrip
+                                                  ? const Color(0xFFF26716)
+                                                  : Colors.grey.shade500,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Pulang Pergi',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: _isRoundTrip
+                                                    ? const Color(0xFF062056)
+                                                    : Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -1553,20 +1714,21 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
 // =============================================================================
 // MODAL PEMILIH STASIUN SE-INDONESIA (SEARCHABLE + REGION FILTER + VALIDATION)
 // =============================================================================
-class _StationPickerModal extends StatefulWidget {
+class StationPickerModal extends StatefulWidget {
   final String title;
   final String forbiddenStationCode;
 
-  const _StationPickerModal({
+  const StationPickerModal({
+    super.key,
     required this.title,
     required this.forbiddenStationCode,
   });
 
   @override
-  State<_StationPickerModal> createState() => _StationPickerModalState();
+  State<StationPickerModal> createState() => _StationPickerModalState();
 }
 
-class _StationPickerModalState extends State<_StationPickerModal> {
+class _StationPickerModalState extends State<StationPickerModal> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _selectedRegion = 'Semua';
   List<StationModel> _allStations = [];

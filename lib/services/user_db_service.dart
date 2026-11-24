@@ -1584,9 +1584,87 @@ class UserDatabaseService {
     return matches;
   }
 
+  /// Cek apakah suatu tiket sudah lewat jadwal kedatangan (otomatis selesai)
+  static bool isTicketCompletedBySchedule(BookingModel b) {
+    try {
+      final now = DateTime.now();
+      DateTime? tripDate;
+
+      if (b.travelDate.contains('-')) {
+        tripDate = DateTime.tryParse(b.travelDate);
+      }
+      if (tripDate == null) {
+        final yearMatch = RegExp(r'\b(202\d)\b').firstMatch(b.travelDate);
+        final dayMatch = RegExp(r'\b(\d{1,2})\b').firstMatch(b.travelDate);
+        if (yearMatch != null && dayMatch != null) {
+          final year = int.parse(yearMatch.group(1)!);
+          final day = int.parse(dayMatch.group(1)!);
+          int month = 1;
+          final lower = b.travelDate.toLowerCase();
+          if (lower.contains('jan')) {
+            month = 1;
+          } else if (lower.contains('feb')) {
+            month = 2;
+          } else if (lower.contains('mar')) {
+            month = 3;
+          } else if (lower.contains('apr')) {
+            month = 4;
+          } else if (lower.contains('mei') || lower.contains('may')) {
+            month = 5;
+          } else if (lower.contains('jun')) {
+            month = 6;
+          } else if (lower.contains('jul')) {
+            month = 7;
+          } else if (lower.contains('agu') || lower.contains('aug')) {
+            month = 8;
+          } else if (lower.contains('sep')) {
+            month = 9;
+          } else if (lower.contains('okt') || lower.contains('oct')) {
+            month = 10;
+          } else if (lower.contains('nov')) {
+            month = 11;
+          } else if (lower.contains('des') || lower.contains('dec')) {
+            month = 12;
+          }
+
+          tripDate = DateTime(year, month, day);
+        }
+      }
+
+      if (tripDate != null) {
+        int hour = 23;
+        int min = 59;
+        final cleanArr = b.arrivalTime.replaceAll('.', ':');
+        final parts = cleanArr.split(':');
+        if (parts.length >= 2) {
+          hour = int.tryParse(parts[0].trim()) ?? 23;
+          min = int.tryParse(parts[1].trim()) ?? 59;
+        }
+
+        final arrivalDateTime =
+            DateTime(tripDate.year, tripDate.month, tripDate.day, hour, min);
+        return now.isAfter(arrivalDateTime.add(const Duration(minutes: 15)));
+      }
+    } catch (_) {}
+    return false;
+  }
+
   /// Ambil Daftar Pesanan (Bookings) - HANYA milik user yang sedang login!
   static Future<List<BookingModel>> getBookings({String? statusFilter}) async {
     await initialize();
+
+    // Auto-complete: update tiket yang jadwal kedatangannya telah terlewati
+    bool hasAutoUpdated = false;
+    for (int i = 0; i < _bookings.length; i++) {
+      if (_bookings[i].status == 'Sudah Dibayar' &&
+          isTicketCompletedBySchedule(_bookings[i])) {
+        _bookings[i] = _bookings[i].copyWith(status: 'Perjalanan Selesai');
+        hasAutoUpdated = true;
+      }
+    }
+    if (hasAutoUpdated) {
+      _saveBookingsToPrefs();
+    }
 
     final currentEmail =
         (await SessionService.getUserEmail())?.toLowerCase().trim() ?? '';
@@ -2169,6 +2247,35 @@ class UserDatabaseService {
       return true;
     }
 
+    return false;
+  }
+
+/// Menandai tiket telah menyelesaikan perjalanan (Perjalanan Selesai)
+  static Future<bool> completeBooking({required String bookingCode}) async {
+    await initialize();
+
+    final index = _bookings.indexWhere((b) => b.bookingId == bookingCode);
+    if (index != -1) {
+      final b = _bookings[index];
+      _bookings[index] = b.copyWith(status: 'Perjalanan Selesai');
+      await _saveBookingsToPrefs();
+
+      // Sinkronkan ke Supabase
+      try {
+        final client = SupabaseService.client;
+        final res = await client
+            .from('bookings')
+            .update({'status': 'Perjalanan Selesai'})
+            .eq('booking_id', bookingCode)
+            .select();
+        debugPrint(
+          '✅ [Supabase] Status tiket $bookingCode diubah menjadi Perjalanan Selesai: $res',
+        );
+      } catch (e) {
+        debugPrint('Catatan update status selesai ke Supabase: $e');
+      }
+      return true;
+    }
     return false;
   }
 
