@@ -7,6 +7,7 @@ import 'supabase_service.dart';
 import 'session_service.dart';
 import 'auth_service.dart';
 import 'supabase_storage_service.dart';
+import 'brevo_notification_service.dart';
 
 /// ============================================================================
 /// DOMAIN MODELS (Strict Typing)
@@ -1778,7 +1779,7 @@ class UserDatabaseService {
           'payment_method': finalPaymentMethod,
           'va_number': finalVaNumber,
           'created_at': DateTime.now().toIso8601String(),
-          if (subQrUrl != null) 'qr_code_url': subQrUrl,
+          'qr_code_url': subQrUrl,
         };
 
         if (_isValidUuid(savedUserId)) {
@@ -1817,6 +1818,7 @@ class UserDatabaseService {
       debugPrint('Detail error: $stack');
     }
 
+    _dispatchBrevoTicketAsync(mainBooking);
     return mainBooking;
   }
 
@@ -1947,6 +1949,7 @@ class UserDatabaseService {
       debugPrint('Detail error: $stack');
     }
 
+    _dispatchBrevoTicketAsync(newBooking);
     return newBooking;
   }
 
@@ -2162,10 +2165,65 @@ class UserDatabaseService {
         debugPrint('Detail error: $stack');
       }
 
+      _dispatchBrevoRefundAsync(b, reason, refundAmount);
       return true;
     }
 
     return false;
+  }
+
+  // ================= BREVO ASYNC DISPATCH HELPERS =================
+  static void _dispatchBrevoTicketAsync(BookingModel booking) {
+    if (booking.passengerEmail.isEmpty ||
+        !booking.passengerEmail.contains('@')) {
+      return;
+    }
+    Future.microtask(() async {
+      try {
+        await BrevoNotificationService.sendTicketConfirmationEmail(
+          recipientEmail: booking.passengerEmail,
+          bookingCode: booking.bookingId,
+          trainName: booking.trainName,
+          trainClass: booking.trainClass,
+          originStation: '${booking.originName} (${booking.originCode})',
+          destStation: '${booking.destName} (${booking.destCode})',
+          travelDate: booking.travelDate,
+          departureTime: booking.departureTime,
+          arrivalTime: booking.arrivalTime,
+          passengerName: booking.passengerName,
+          seatNumber: booking.seatNumber,
+          totalAmount: booking.totalAmount,
+          paymentMethod: booking.paymentMethod,
+        );
+      } catch (e) {
+        debugPrint('Catatan dispatch Brevo ticket async: $e');
+      }
+    });
+  }
+
+  static void _dispatchBrevoRefundAsync(
+    BookingModel booking,
+    String reason,
+    int refundAmount,
+  ) {
+    if (booking.passengerEmail.isEmpty ||
+        !booking.passengerEmail.contains('@')) {
+      return;
+    }
+    Future.microtask(() async {
+      try {
+        await BrevoNotificationService.sendRefundConfirmationEmail(
+          recipientEmail: booking.passengerEmail,
+          bookingCode: booking.bookingId,
+          trainName: booking.trainName,
+          refundAmount: refundAmount,
+          reason: reason,
+          passengerName: booking.passengerName,
+        );
+      } catch (e) {
+        debugPrint('Catatan dispatch Brevo refund async: $e');
+      }
+    });
   }
 
   /// Mencatat riwayat pembatalan ke tabel cancellations Supabase dengan fallback berlapis:

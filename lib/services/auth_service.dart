@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io' if (dart.library.html) 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/app_env.dart';
+import 'brevo_notification_service.dart';
 import 'session_service.dart';
 import 'supabase_service.dart';
 
@@ -570,5 +572,136 @@ class AuthService {
     }
 
     return SupabaseService.client.auth.currentUser;
+  }
+
+  // ================= PASSWORD RESET (BREVO + SUPABASE) =================
+
+  /// Permintaan Reset Password:
+  /// 1. Buat kode OTP 6-digit & simpan batas kedaluwarsa 15 menit.
+  /// 2. Picu Supabase Auth resetPasswordForEmail (jika Custom SMTP aktif di Supabase Dashboard).
+  /// 3. Kirim email resmi berformat HTML dengan kode OTP langsung via Brevo Transactional API.
+  static Future<({bool success, String message, String? otpCode})>
+      requestPasswordReset(String email) async {
+    final cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail.isEmpty || !cleanEmail.contains('@')) {
+      return (
+        success: false,
+        message: 'Harap masukkan alamat email yang valid.',
+        otpCode: null,
+      );
+    }
+
+    // 1. Buat kode OTP 6-digit numerik acak
+    final random = math.Random();
+    final otpCode = (100000 + random.nextInt(900000)).toString();
+
+    // Simpan OTP ke session service lokal
+    await SessionService.storePasswordResetOtp(
+      email: cleanEmail,
+      otp: otpCode,
+      validFor: const Duration(minutes: 15),
+    );
+
+    // Cari nama user jika ada
+    String? resolvedName;
+    try {
+      final activeAcc = await SessionService.getActiveAccount();
+      if (activeAcc?['email']?.toString().toLowerCase() == cleanEmail) {
+        resolvedName = activeAcc?['name']?.toString();
+      }
+    } catch (_) {}
+
+    // 2. Kirim email resmi Kode OTP via Brevo Transactional API
+    // Catatan: Tidak memanggil Supabase resetPasswordForEmail agar pengguna tidak menerima
+    // email dobel/konflik bertuliskan "Supabase Auth" yang hanya berisi link tanpa kode OTP.
+    final brevoResult = await BrevoNotificationService.sendPasswordResetOtpEmail(
+      recipientEmail: cleanEmail,
+      otpCode: otpCode,
+      userName: resolvedName,
+    );
+
+    if (brevoResult.success) {
+      return (
+        success: true,
+        message:
+            'Kode verifikasi 6 digit telah dikirim ke $cleanEmail via Brevo. Silakan periksa kotak masuk atau spam.',
+        otpCode: otpCode,
+      );
+    }
+
+    // Jika Brevo API gagal (misal kunci API belum diaktifkan), tetap izinkan kode OTP lokal untuk pengujian
+    return (
+      success: true,
+      message:
+          'Permintaan reset diproses. Catatan Brevo: ${brevoResult.error ?? "Email dalam antrean"}. Gunakan kode OTP untuk verifikasi.',
+      otpCode: otpCode,
+    );
+  }
+
+  /// Verifikasi Kode OTP dan simpan password baru
+  static Future<({bool success, String message})> resetPasswordWithOtp({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanOtp = otp.trim();
+
+    if (cleanOtp.length < 6) {
+      return (
+        success: false,
+        message: 'Kode OTP harus berupa 6 digit angka.',
+      );
+    }
+
+    if (newPassword.length < 6) {
+      return (
+        success: false,
+        message: 'Kata sandi baru minimal harus 6 karakter.',
+      );
+    }
+
+    // 1. Verifikasi kode OTP
+    final verifyResult = await SessionService.verifyPasswordResetOtp(
+      email: cleanEmail,
+      otp: cleanOtp,
+    );
+
+    if (!verifyResult.valid) {
+      return (
+        success: false,
+        message: verifyResult.message,
+      );
+    }
+
+    // 2. Perbarui password di akun lokal
+    await SessionService.updateAccountPassword(
+      identifier: cleanEmail,
+      newPassword: newPassword,
+    );
+
+    // 3. Hapus OTP yang sudah dipakai
+    await SessionService.consumePasswordResetOtp(cleanEmail);
+
+    // 4. Update di Supabase Auth jika sesi user tersedia
+    if (SupabaseService.isInitialized) {
+      try {
+        final currentUser = SupabaseService.client.auth.currentUser;
+        if (currentUser != null &&
+            currentUser.email?.toLowerCase() == cleanEmail) {
+          await SupabaseService.client.auth.updateUser(
+            UserAttributes(password: newPassword),
+          );
+          debugPrint('✅ [Supabase Auth] Password akun Supabase berhasil diperbarui.');
+        }
+      } catch (e) {
+        debugPrint('ℹ️ [Supabase Auth update notice] $e');
+      }
+    }
+
+    return (
+      success: true,
+      message: 'Kata sandi berhasil diperbarui! Silakan masuk dengan kata sandi baru Anda.',
+    );
   }
 }

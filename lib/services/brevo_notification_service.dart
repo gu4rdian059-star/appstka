@@ -419,6 +419,354 @@ class BrevoNotificationService {
     }
   }
 
+  // ================= TRANSACTIONAL EMAIL DISPATCH METHODS =================
+
+  /// Kirim email kustom langsung via Brevo Transactional API v3 (`/v3/smtp/email`).
+  static Future<({bool success, String? messageId, String? error})>
+      sendCustomEmail({
+    required String recipientEmail,
+    String? recipientName,
+    required String subject,
+    required String htmlContent,
+  }) async {
+    final apiKey = AppEnv.brevoApiKey;
+    if (apiKey.isEmpty) {
+      debugPrint('⚠️ [Brevo] BREVO_API_KEY belum dikonfigurasi di file .env.');
+      return (
+        success: false,
+        messageId: null,
+        error: 'BREVO_API_KEY belum dikonfigurasi di file .env',
+      );
+    }
+
+    final cleanRecipient = recipientEmail.trim();
+    if (!cleanRecipient.contains('@')) {
+      return (
+        success: false,
+        messageId: null,
+        error: 'Format email penerima tidak valid ($cleanRecipient)',
+      );
+    }
+
+    final targetName = (recipientName != null && recipientName.trim().isNotEmpty)
+        ? recipientName.trim()
+        : cleanRecipient.split('@').first;
+
+    try {
+      final resp = await http
+          .post(
+            Uri.parse('https://api.brevo.com/v3/smtp/email'),
+            headers: {
+              'accept': 'application/json',
+              'content-type': 'application/json',
+              'api-key': apiKey,
+            },
+            body: jsonEncode({
+              'sender': {
+                'name': AppEnv.brevoSenderName,
+                'email': AppEnv.brevoSenderEmail,
+              },
+              'to': [
+                {
+                  'email': cleanRecipient,
+                  'name': targetName,
+                }
+              ],
+              'subject': subject,
+              'htmlContent': htmlContent,
+            }),
+          )
+          .timeout(const Duration(seconds: 14));
+
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        final decoded = jsonDecode(resp.body);
+        final msgId = decoded['messageId']?.toString();
+        debugPrint(
+          '✅ [Brevo API] Email "$subject" berhasil terkirim ke $cleanRecipient (ID: $msgId)',
+        );
+        return (success: true, messageId: msgId, error: null);
+      }
+
+      final errorMsg = 'HTTP ${resp.statusCode}: ${resp.body}';
+      debugPrint('❌ [Brevo API Error] $errorMsg');
+      return (success: false, messageId: null, error: errorMsg);
+    } catch (e) {
+      debugPrint('❌ [Brevo API Exception] $e');
+      return (success: false, messageId: null, error: e.toString());
+    }
+  }
+
+  /// Kirim Kode OTP Pemulihan Kata Sandi via Brevo API v3
+  static Future<({bool success, String? messageId, String? error})>
+      sendPasswordResetOtpEmail({
+    required String recipientEmail,
+    required String otpCode,
+    String? userName,
+  }) async {
+    final name = (userName != null && userName.trim().isNotEmpty)
+        ? userName.trim()
+        : 'Pelanggan TKA';
+    final timestampWib = IndonesiaTimeService.formatDateTime(
+      DateTime.now().toUtc(),
+      withSeconds: true,
+    );
+
+    final htmlContent = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Reset Kata Sandi TKA</title>
+</head>
+<body style="margin:0;padding:24px 12px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);border:1px solid #e2e8f0;">
+    <div style="background:#062056;padding:28px 24px;text-align:center;">
+      <div style="display:inline-block;background:#F26716;color:#ffffff;font-size:12px;font-weight:bold;letter-spacing:1.5px;padding:4px 12px;border-radius:20px;text-transform:uppercase;margin-bottom:12px;">
+        Keamanan Akun TKA
+      </div>
+      <h1 style="color:#ffffff;font-size:22px;margin:0;font-weight:800;">Pemulihan Kata Sandi</h1>
+      <p style="color:#94a3b8;font-size:13px;margin:6px 0 0;">Layanan Tiket Kereta Api Indonesia</p>
+    </div>
+    <div style="padding:28px 24px;color:#1e293b;">
+      <p style="font-size:14px;line-height:1.6;margin:0 0 16px;">
+        Halo <strong>$name</strong>,
+      </p>
+      <p style="font-size:14px;line-height:1.6;margin:0 0 20px;">
+        Kami menerima permintaan untuk mengatur ulang kata sandi akun TKA Anda. Gunakan kode verifikasi (OTP) berikut untuk melanjutkan proses reset password di aplikasi:
+      </p>
+      <div style="background:#f1f5f9;border:2px dashed #cbd5e1;border-radius:12px;padding:20px;text-align:center;margin:24px 0;">
+        <div style="font-size:11px;color:#64748b;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+          Kode Verifikasi (OTP)
+        </div>
+        <div style="font-size:36px;font-weight:900;letter-spacing:10px;color:#062056;font-family:'Courier New',Courier,monospace;">
+          $otpCode
+        </div>
+        <div style="font-size:12px;color:#ef4444;font-weight:600;margin-top:10px;">
+          ⏱ Berlaku selama 15 menit
+        </div>
+      </div>
+      <div style="background:#fff7ed;border-left:4px solid #f97316;padding:12px 16px;border-radius:6px;margin-bottom:20px;">
+        <p style="font-size:12.5px;color:#9a3412;margin:0;line-height:1.5;">
+          <strong>PENTING:</strong> Jangan berikan kode ini kepada siapa pun, termasuk pihak yang mengatasnamakan TKA Rail. Jika Anda tidak merasa melakukan permintaan ini, abaikan email ini dan amankan akun Anda.
+        </p>
+      </div>
+      <div style="font-size:11.5px;color:#94a3b8;line-height:1.5;border-top:1px solid #f1f5f9;padding-top:16px;">
+        Waktu Permintaan: <strong>$timestampWib</strong><br/>
+        Email Penerima: <strong>$recipientEmail</strong>
+      </div>
+    </div>
+    <div style="background:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="font-size:11px;color:#64748b;margin:0;">
+        © 2026 TKA Rail Mobile • PT Kereta Api Indonesia (Persero)<br/>
+        Email transaksi ini dikirim otomatis melalui Brevo.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+''';
+
+    return sendCustomEmail(
+      recipientEmail: recipientEmail,
+      recipientName: userName,
+      subject: '[TKA Rail] $otpCode adalah Kode Verifikasi Reset Password Anda',
+      htmlContent: htmlContent,
+    );
+  }
+
+  /// Kirim Tiket Konfirmasi / E-Ticket Resmi via Brevo
+  static Future<({bool success, String? messageId, String? error})>
+      sendTicketConfirmationEmail({
+    required String recipientEmail,
+    required String bookingCode,
+    required String trainName,
+    required String trainClass,
+    required String originStation,
+    required String destStation,
+    required String travelDate,
+    required String departureTime,
+    required String arrivalTime,
+    required String passengerName,
+    required String seatNumber,
+    required int totalAmount,
+    String? paymentMethod,
+  }) async {
+    final timestampWib = IndonesiaTimeService.formatDateTime(
+      DateTime.now().toUtc(),
+      withSeconds: true,
+    );
+    final formattedPrice =
+        'Rp ${totalAmount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+
+    final htmlContent = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>E-Ticket Resmi TKA Rail</title>
+</head>
+<body style="margin:0;padding:24px 12px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);border:1px solid #e2e8f0;">
+    <div style="background:#062056;padding:26px 24px;color:#ffffff;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td>
+            <span style="background:#16a34a;color:#ffffff;font-size:11px;font-weight:bold;letter-spacing:1px;padding:3px 10px;border-radius:12px;text-transform:uppercase;">
+              LUNAS / TERKONFIRMASI
+            </span>
+            <h1 style="color:#ffffff;font-size:20px;margin:8px 0 0;font-weight:800;">E-Ticket Resmi TKA Rail</h1>
+          </td>
+          <td style="text-align:right;">
+            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;">Kode Booking</div>
+            <div style="font-size:18px;font-weight:900;color:#F26716;letter-spacing:1px;">$bookingCode</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <div style="padding:24px;color:#1e293b;">
+      <div style="background:#f1f5f9;border-radius:12px;padding:16px;margin-bottom:20px;">
+        <div style="font-size:15px;font-weight:bold;color:#062056;margin-bottom:4px;">
+          $trainName <span style="font-size:12px;font-weight:normal;color:#64748b;">($trainClass)</span>
+        </div>
+        <div style="font-size:12.5px;color:#64748b;margin-bottom:12px;">Tanggal Keberangkatan: <strong>$travelDate</strong></div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <tr>
+            <td style="width:45%;vertical-align:top;">
+              <div style="font-size:11px;color:#94a3b8;">BERANGKAT</div>
+              <div style="font-size:16px;font-weight:bold;color:#062056;">$departureTime</div>
+              <div style="font-weight:600;color:#1e293b;">$originStation</div>
+            </td>
+            <td style="width:10%;text-align:center;font-size:18px;color:#F26716;">➔</td>
+            <td style="width:45%;vertical-align:top;text-align:right;">
+              <div style="font-size:11px;color:#94a3b8;">TIBA</div>
+              <div style="font-size:16px;font-weight:bold;color:#062056;">$arrivalTime</div>
+              <div style="font-weight:600;color:#1e293b;">$destStation</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;border-bottom:1px solid #f1f5f9;padding-bottom:12px;">
+        <tr>
+          <td style="padding:6px 0;color:#64748b;">Nama Penumpang</td>
+          <td style="padding:6px 0;text-align:right;font-weight:bold;color:#062056;">$passengerName</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#64748b;">Nomor Kursi</td>
+          <td style="padding:6px 0;text-align:right;font-weight:bold;color:#F26716;">$seatNumber</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#64748b;">Metode Pembayaran</td>
+          <td style="padding:6px 0;text-align:right;font-weight:600;color:#1e293b;">${paymentMethod ?? 'Online Payment'}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#062056;font-size:14px;font-weight:bold;">Total Pembayaran</td>
+          <td style="padding:8px 0;text-align:right;font-size:16px;font-weight:900;color:#16a34a;">$formattedPrice</td>
+        </tr>
+      </table>
+      <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:12px 14px;border-radius:6px;font-size:12px;color:#1e40af;line-height:1.5;">
+        <strong>Petunjuk Boarding:</strong> Tunjukkan E-Ticket ini beserta kartu identitas resmi saat boarding di stasiun keberangkatan minimal 30 menit sebelum jadwal.
+      </div>
+    </div>
+    <div style="background:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;">
+      Diterbitkan otomatis oleh TKA Rail Ticketing System pada $timestampWib.<br/>
+      ID Booking: <code>$bookingCode</code> • Dukungan: support@tka-rail.id
+    </div>
+  </div>
+</body>
+</html>
+''';
+
+    return sendCustomEmail(
+      recipientEmail: recipientEmail,
+      recipientName: passengerName,
+      subject:
+          '[TKA Rail] E-Ticket Berhasil Diterbitkan ($bookingCode) - $trainName',
+      htmlContent: htmlContent,
+    );
+  }
+
+  /// Kirim Notifikasi Pembatalan Tiket & Pengajuan Refund via Brevo
+  static Future<({bool success, String? messageId, String? error})>
+      sendRefundConfirmationEmail({
+    required String recipientEmail,
+    required String bookingCode,
+    required String trainName,
+    required int refundAmount,
+    required String reason,
+    String? passengerName,
+  }) async {
+    final timestampWib = IndonesiaTimeService.formatDateTime(
+      DateTime.now().toUtc(),
+      withSeconds: true,
+    );
+    final formattedRefund =
+        'Rp ${refundAmount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+
+    final htmlContent = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Pengajuan Refund Tiket TKA</title>
+</head>
+<body style="margin:0;padding:24px 12px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);border:1px solid #e2e8f0;">
+    <div style="background:#062056;padding:26px 24px;color:#ffffff;text-align:center;">
+      <span style="background:#f59e0b;color:#ffffff;font-size:11px;font-weight:bold;letter-spacing:1px;padding:3px 10px;border-radius:12px;text-transform:uppercase;">
+        REFUND DIPROSES
+      </span>
+      <h1 style="color:#ffffff;font-size:20px;margin:10px 0 0;font-weight:800;">Konfirmasi Pembatalan Tiket</h1>
+    </div>
+    <div style="padding:24px;color:#1e293b;">
+      <p style="font-size:14px;line-height:1.6;margin:0 0 16px;">
+        Halo <strong>${passengerName ?? 'Pelanggan TKA'}</strong>,
+      </p>
+      <p style="font-size:13.5px;line-height:1.6;margin:0 0 20px;color:#475569;">
+        Permohonan pembatalan perjalanan dan pengembalian dana (refund) untuk tiket Anda telah kami terima dan tercatat dalam sistem TKA Rail.
+      </p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:4px 0;color:#64748b;">Kode Booking</td>
+            <td style="padding:4px 0;text-align:right;font-weight:bold;color:#062056;">$bookingCode</td>
+          </tr>
+          <tr>
+            <td style="padding:4px 0;color:#64748b;">Kereta Api</td>
+            <td style="padding:4px 0;text-align:right;font-weight:600;color:#1e293b;">$trainName</td>
+          </tr>
+          <tr>
+            <td style="padding:4px 0;color:#64748b;">Alasan Pembatalan</td>
+            <td style="padding:4px 0;text-align:right;color:#1e293b;">$reason</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0 4px;color:#062056;font-weight:bold;">Estimasi Pengembalian (75%)</td>
+            <td style="padding:8px 0 4px;text-align:right;font-weight:900;color:#16a34a;font-size:15px;">$formattedRefund</td>
+          </tr>
+        </table>
+      </div>
+      <div style="background:#f0fdf4;border-left:4px solid #22c55e;padding:12px 14px;border-radius:6px;font-size:12px;color:#15803d;line-height:1.5;">
+        Dana pengembalian akan ditransfer ke rekening bank / metode pembayaran asal dalam waktu <strong>14–30 hari kerja</strong> sesuai regulasi pembatalan tiket KAI.
+      </div>
+      <div style="font-size:11.5px;color:#94a3b8;margin-top:20px;border-top:1px solid #f1f5f9;padding-top:14px;">
+        Waktu Pengajuan: <strong>$timestampWib</strong>
+      </div>
+    </div>
+    <div style="background:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;">
+      © 2026 TKA Rail Ticketing System • PT Kereta Api Indonesia (Persero)
+    </div>
+  </div>
+</body>
+</html>
+''';
+
+    return sendCustomEmail(
+      recipientEmail: recipientEmail,
+      recipientName: passengerName,
+      subject: '[TKA Rail] Permohonan Refund Tiket ($bookingCode) Diterima',
+      htmlContent: htmlContent,
+    );
+  }
+
   /// Seed notifikasi contoh awal jika belum ada notifikasi sama sekali agar inbox langsung informatif.
   static Future<void> ensureInitialSeedIfEmpty() async {
     final userId = await _resolveUserId();

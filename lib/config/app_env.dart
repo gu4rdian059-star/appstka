@@ -112,16 +112,58 @@ class AppEnv {
         defineValue: const String.fromEnvironment('MAPTILER_STYLE_URL'),
       );
 
-  static String get brevoApiKey => _read(
-        'BREVO_API_KEY',
-        defineValue: const String.fromEnvironment('BREVO_API_KEY'),
+  static String get brevoApiKey {
+    final key = _read(
+      'BREVO_API_KEY',
+      defineValue: const String.fromEnvironment('BREVO_API_KEY'),
+    );
+    if (key.isNotEmpty) return key;
+    final smtpPass = _read(
+      'SMTP_PASS',
+      defineValue: const String.fromEnvironment('SMTP_PASS'),
+    );
+    if (smtpPass.startsWith('xkeysib-') || smtpPass.startsWith('xsmtpsib-')) {
+      return smtpPass;
+    }
+    return '';
+  }
+
+  static String get smtpHost => _read(
+        'SMTP_HOST',
+        defineValue: const String.fromEnvironment('SMTP_HOST'),
+        fallback: 'smtp-relay.brevo.com',
       );
 
-  static String get brevoSenderEmail => _read(
-        'BREVO_SENDER_EMAIL',
-        defineValue: const String.fromEnvironment('BREVO_SENDER_EMAIL'),
-        fallback: 'noreply@tka-rail.id',
+  static int get smtpPort =>
+      int.tryParse(_read(
+        'SMTP_PORT',
+        defineValue: const String.fromEnvironment('SMTP_PORT'),
+        fallback: '587',
+      )) ??
+      587;
+
+  static String get smtpUser => _read(
+        'SMTP_USER',
+        defineValue: const String.fromEnvironment('SMTP_USER'),
+        fallback: 'b16832001@smtp-brevo.com',
       );
+
+  static String get smtpPass => _read(
+        'SMTP_PASS',
+        defineValue: const String.fromEnvironment('SMTP_PASS'),
+      );
+
+  static String get brevoSenderEmail {
+    final email = _read(
+      'BREVO_SENDER_EMAIL',
+      defineValue: const String.fromEnvironment('BREVO_SENDER_EMAIL'),
+      fallback: 'samawwalazhar@gmail.com',
+    );
+    if (email.contains('samawwalaxhar')) {
+      return email.replaceAll('samawwalaxhar', 'samawwalazhar');
+    }
+    return email;
+  }
 
   static String get brevoSenderName => _read(
         'BREVO_SENDER_NAME',
@@ -137,4 +179,5 @@ class AppEnv {
 
   static bool get hasMapTilerConfig => mapTilerStyleUrl.isNotEmpty;
   static bool get hasBrevoConfig => brevoApiKey.isNotEmpty;
+  static bool get hasSmtpConfig => smtpUser.isNotEmpty && smtpPass.isNotEmpty;
 }

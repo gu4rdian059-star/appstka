@@ -540,4 +540,110 @@ class SessionService {
       } catch (_) {}
     }
   }
+
+  // ================= PASSWORD RESET OTP & CREDENTIAL UPDATES =================
+  static const String _keyOtpPrefix = 'tka_reset_otp_';
+  static const String _keyOtpExpiryPrefix = 'tka_reset_otp_exp_';
+
+  /// Simpan kode OTP reset password dengan batas kedaluwarsa (default 15 menit)
+  static Future<void> storePasswordResetOtp({
+    required String email,
+    required String otp,
+    Duration validFor = const Duration(minutes: 15),
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cleanEmail = email.trim().toLowerCase();
+    final expiryTime = DateTime.now().add(validFor).millisecondsSinceEpoch;
+    await prefs.setString('$_keyOtpPrefix$cleanEmail', otp.trim());
+    await prefs.setInt('$_keyOtpExpiryPrefix$cleanEmail', expiryTime);
+  }
+
+  /// Verifikasi kode OTP reset password
+  static Future<({bool valid, String message})> verifyPasswordResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cleanEmail = email.trim().toLowerCase();
+    final storedOtp = prefs.getString('$_keyOtpPrefix$cleanEmail');
+    final storedExp = prefs.getInt('$_keyOtpExpiryPrefix$cleanEmail');
+
+    if (storedOtp == null || storedExp == null) {
+      return (
+        valid: false,
+        message:
+            'Kode OTP tidak ditemukan atau belum pernah diminta. Silakan minta kode baru.',
+      );
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now > storedExp) {
+      await prefs.remove('$_keyOtpPrefix$cleanEmail');
+      await prefs.remove('$_keyOtpExpiryPrefix$cleanEmail');
+      return (
+        valid: false,
+        message: 'Kode OTP telah kedaluwarsa. Silakan minta kode reset baru.',
+      );
+    }
+
+    if (storedOtp.trim() != otp.trim()) {
+      return (
+        valid: false,
+        message:
+            'Kode OTP yang Anda masukkan salah. Periksa kembali kotak masuk email Anda.',
+      );
+    }
+
+    return (valid: true, message: 'Kode OTP valid.');
+  }
+
+  /// Hapus kode OTP setelah berhasil digunakan
+  static Future<void> consumePasswordResetOtp(String email) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cleanEmail = email.trim().toLowerCase();
+      await prefs.remove('$_keyOtpPrefix$cleanEmail');
+      await prefs.remove('$_keyOtpExpiryPrefix$cleanEmail');
+    } catch (_) {}
+  }
+
+  /// Perbarui kata sandi akun lokal terdaftar
+  static Future<bool> updateAccountPassword({
+    required String identifier,
+    required String newPassword,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyRegisteredUsers);
+    final cleanId = identifier.trim().toLowerCase();
+    Map<String, dynamic> users = {};
+    if (raw != null) {
+      try {
+        users = Map<String, dynamic>.from(jsonDecode(raw));
+      } catch (_) {}
+    }
+
+    bool updated = false;
+    for (final entry in users.entries) {
+      final user = Map<String, dynamic>.from(entry.value);
+      if (user['email']?.toString().toLowerCase() == cleanId ||
+          user['phone']?.toString() == cleanId ||
+          entry.key.toLowerCase() == cleanId) {
+        user['password'] = newPassword;
+        users[entry.key] = user;
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      await prefs.setString(_keyRegisteredUsers, jsonEncode(users));
+    }
+
+    // Perbarui juga password sesi aktif jika email cocok
+    final activeEmail = await getUserEmail();
+    if (activeEmail != null && activeEmail.toLowerCase() == cleanId) {
+      await prefs.setString(_keyUserPassword, newPassword);
+    }
+
+    return updated;
+  }
 }
