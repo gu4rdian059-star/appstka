@@ -6,6 +6,8 @@ import '../services/user_db_service.dart';
 import '../transitions/page_transitions.dart';
 import 'order_confirmation_screen.dart';
 
+// halo/
+
 class SeatSelectionScreen extends StatefulWidget {
   final TrainScheduleModel train;
   final StationModel origin;
@@ -255,10 +257,10 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
     if (otherPassengerIdx != null) {
       final pName =
           widget.passengers != null &&
-              otherPassengerIdx! < widget.passengers!.length
-          ? widget.passengers![otherPassengerIdx!]['name'] ??
-                'Penumpang ${otherPassengerIdx! + 1}'
-          : 'Penumpang ${otherPassengerIdx! + 1}';
+                  otherPassengerIdx! < widget.passengers!.length
+              ? widget.passengers![otherPassengerIdx!]['name'] ??
+                  'Penumpang ${otherPassengerIdx! + 1}'
+              : 'Penumpang ${otherPassengerIdx! + 1}';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Kursi $seatCode saat ini dialokasikan untuk $pName.'),
@@ -308,14 +310,15 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
     final confirmedPassengers = <Map<String, String>>[];
 
     for (int i = 0; i < _passengerCount; i++) {
-      final p = widget.passengers != null && i < widget.passengers!.length
-          ? Map<String, String>.from(widget.passengers![i])
-          : <String, String>{
-              'name': widget.passengerName,
-              'id': widget.passengerNik,
-              'category': 'Dewasa (> 3 tahun)',
-              'idType': 'NIK / KTP',
-            };
+      final p =
+          widget.passengers != null && i < widget.passengers!.length
+              ? Map<String, String>.from(widget.passengers![i])
+              : <String, String>{
+                'name': widget.passengerName,
+                'id': widget.passengerNik,
+                'category': 'Dewasa (> 3 tahun)',
+                'idType': 'NIK / KTP',
+              };
       final s = _passengerSeats[i] ?? _selectedSeat;
       p['seat'] = '$currentWagon / $s';
       p['seatSide'] = _getSeatSide(s);
@@ -335,13 +338,11 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
         bookerName: widget.bookerName,
         bookerEmail: widget.bookerEmail,
         bookerPhone: widget.bookerPhone,
-        passengerName:
-            confirmedPassengers[0]['name'] ?? widget.passengerName,
+        passengerName: confirmedPassengers[0]['name'] ?? widget.passengerName,
         passengerNik: confirmedPassengers[0]['id'] ?? widget.passengerNik,
         passengers: confirmedPassengers,
         selectedSeat: allSeatsStr,
-        seatSide:
-            confirmedPassengers[0]['seatSide'] ?? _seatSideDescription,
+        seatSide: confirmedPassengers[0]['seatSide'] ?? _seatSideDescription,
         totalAmount: widget.totalAmount,
         returnTrain: widget.returnTrain,
         returnDate: widget.returnDate,
@@ -461,16 +462,15 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                       return FadeTransition(
                         opacity: animation,
                         child: SlideTransition(
-                          position:
-                              Tween<Offset>(
-                                begin: const Offset(0.04, 0),
-                                end: Offset.zero,
-                              ).animate(
-                                CurvedAnimation(
-                                  parent: animation,
-                                  curve: Curves.easeOutCubic,
-                                ),
-                              ),
+                          position: Tween<Offset>(
+                            begin: const Offset(0.04, 0),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
                           child: child,
                         ),
                       );
@@ -597,70 +597,76 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
         ),
         const SizedBox(height: 8),
         Row(
-          children: _wagons.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final w = entry.value;
-            final isSelected = _selectedWagonIndex == idx;
+          children:
+              _wagons.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final w = entry.value;
+                final isSelected = _selectedWagonIndex == idx;
 
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => _onWagonChanged(idx),
-                child: Container(
-                  margin: EdgeInsets.only(
-                    right: idx == _wagons.length - 1 ? 0 : 8,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF062056) : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF062056)
-                          : const Color(0xFFE2E8F0),
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => _onWagonChanged(idx),
+                    child: Container(
+                      margin: EdgeInsets.only(
+                        right: idx == _wagons.length - 1 ? 0 : 8,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            isSelected ? const Color(0xFF062056) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color:
+                              isSelected
+                                  ? const Color(0xFF062056)
+                                  : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            w['code'] as String,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color:
+                                  isSelected
+                                      ? Colors.white70
+                                      : Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            w['name'] as String,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color:
+                                  isSelected
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${w['available']} Kursi',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              color:
+                                  isSelected
+                                      ? Colors.white60
+                                      : Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      Text(
-                        w['code'] as String,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected
-                              ? Colors.white70
-                              : Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        w['name'] as String,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: isSelected
-                              ? Colors.white
-                              : const Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${w['available']} Kursi',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          color: isSelected
-                              ? Colors.white60
-                              : Colors.grey.shade500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
+                );
+              }).toList(),
         ),
       ],
     );
@@ -918,8 +924,8 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                 final isActive = _activePassengerIdx == idx;
                 final pData =
                     widget.passengers != null && idx < widget.passengers!.length
-                    ? widget.passengers![idx]
-                    : {'name': 'Penumpang ${idx + 1}'};
+                        ? widget.passengers![idx]
+                        : {'name': 'Penumpang ${idx + 1}'};
                 final name = pData['name'] ?? 'Penumpang ${idx + 1}';
                 final seat = _passengerSeats[idx];
 
@@ -937,14 +943,16 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: isActive
-                          ? const Color(0xFF062056)
-                          : const Color(0xFFF8FAFC),
+                      color:
+                          isActive
+                              ? const Color(0xFF062056)
+                              : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: isActive
-                            ? const Color(0xFF062056)
-                            : const Color(0xFFCBD5E1),
+                        color:
+                            isActive
+                                ? const Color(0xFF062056)
+                                : const Color(0xFFCBD5E1),
                         width: isActive ? 1.5 : 1,
                       ),
                     ),
@@ -957,9 +965,10 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: isActive
-                                ? const Color(0xFFF26716)
-                                : const Color(0xFF94A3B8),
+                            color:
+                                isActive
+                                    ? const Color(0xFFF26716)
+                                    : const Color(0xFF94A3B8),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -979,9 +988,10 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.bold,
-                            color: isActive
-                                ? Colors.white
-                                : const Color(0xFF1E293B),
+                            color:
+                                isActive
+                                    ? Colors.white
+                                    : const Color(0xFF1E293B),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -991,9 +1001,10 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: isActive
-                                ? Colors.white.withValues(alpha: 0.2)
-                                : const Color(0xFFE2E8F0),
+                            color:
+                                isActive
+                                    ? Colors.white.withValues(alpha: 0.2)
+                                    : const Color(0xFFE2E8F0),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -1001,9 +1012,10 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
-                              color: isActive
-                                  ? Colors.white
-                                  : const Color(0xFF0F172A),
+                              color:
+                                  isActive
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A),
                             ),
                           ),
                         ),
@@ -1075,12 +1087,12 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
             Text(
               seatCode,
               style: TextStyle(
-                fontSize: assignedPIdx != null && _passengerCount > 1
-                    ? 10.5
-                    : 11.5,
-                fontWeight: (isSelectedByActive || isSelectedByOther)
-                    ? FontWeight.w900
-                    : FontWeight.bold,
+                fontSize:
+                    assignedPIdx != null && _passengerCount > 1 ? 10.5 : 11.5,
+                fontWeight:
+                    (isSelectedByActive || isSelectedByOther)
+                        ? FontWeight.w900
+                        : FontWeight.bold,
                 color: textColor,
               ),
             ),
@@ -1092,9 +1104,10 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                   vertical: 0.5,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelectedByActive
-                      ? const Color(0xFFF26716)
-                      : Colors.white.withValues(alpha: 0.25),
+                  color:
+                      isSelectedByActive
+                          ? const Color(0xFFF26716)
+                          : Colors.white.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Text(
@@ -1114,9 +1127,8 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
 
   Widget _buildStickyBottomBar(String wagonCode) {
     final wagonName = _wagons[_selectedWagonIndex]['code'];
-    final seatsDisplay = _passengerCount > 1
-        ? _passengerSeats.values.join(', ')
-        : _selectedSeat;
+    final seatsDisplay =
+        _passengerCount > 1 ? _passengerSeats.values.join(', ') : _selectedSeat;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
