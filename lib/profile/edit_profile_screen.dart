@@ -78,13 +78,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       });
     }
 
-    // Ambil data terbaru langsung dari Supabase tabel 'profiles' jika tersedia
+    // Ambil data terbaru langsung dari Supabase tabel 'users' jika tersedia
     try {
       final cleanEmail = (email ?? widget.currentEmail).toLowerCase().trim();
       if (cleanEmail.isNotEmpty) {
         final client = SupabaseService.client;
         final res = await client
-            .from('profiles')
+            .from('users')
             .select()
             .eq('email', cleanEmail)
             .maybeSingle();
@@ -681,7 +681,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       await SessionService.setUserAvatar(_avatarUrl!);
     }
 
-    // 2. Sinkronkan ke database Supabase tabel 'profiles'
+    // 2. Sinkronkan ke database Supabase tabel 'users'
     final synced = await SessionService.syncUserProfileToSupabase(
       name: name,
       email: email,

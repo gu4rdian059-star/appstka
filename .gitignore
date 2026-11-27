@@ -1,7 +1,10 @@
-# Environment variables (secrets)
+# Environment variables & API test credentials (secrets - NEVER publish)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+thunder-environment*.json
+postman-environment*.json
+thunder-tests/
 
 # Miscellaneous
 *.class

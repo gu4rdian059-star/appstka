@@ -1,9 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../services/supabase_storage_service.dart';
+import '../services/user_db_service.dart';
 
-class KatalogKaScreen extends StatelessWidget {
+class KatalogKaScreen extends StatefulWidget {
   const KatalogKaScreen({super.key});
+
+  @override
+  State<KatalogKaScreen> createState() => _KatalogKaScreenState();
+}
+
+class _KatalogKaScreenState extends State<KatalogKaScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Sinkronkan data armada melalui GET PostgREST /rest/v1/train_schedules (HTTP 200 OK)
+    UserDatabaseService.getAllTrainSchedules(refreshRemote: true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -315,17 +328,10 @@ class KatalogKaScreen extends StatelessWidget {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        Image.network(
-                          SupabaseStorageService.getTrainAssetUrl(
-                            t['image'] as String,
-                          ),
+                        Image.asset(
+                          t['localFallback'] as String,
                           height: 90,
                           fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) => Image.asset(
-                            t['localFallback'] as String,
-                            height: 90,
-                            fit: BoxFit.contain,
-                          ),
                         ),
                         Positioned(
                           top: 6,

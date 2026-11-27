@@ -46,8 +46,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
     });
   }
 
-  Future<void> _loadBookings() async {
-    final list = await UserDatabaseService.getBookings();
+  Future<void> _loadBookings({bool forceRefresh = false}) async {
+    // Tampilkan data cache memori seketika (0ms) jika sudah tersedia
+    final cached = UserDatabaseService.getCachedBookings();
+    if (cached.isNotEmpty && _bookings.isEmpty && mounted) {
+      setState(() {
+        _bookings = List.from(cached);
+        _isLoading = false;
+      });
+    }
+
+    final list = await UserDatabaseService.getBookings(
+      forceRefresh: forceRefresh,
+    );
     if (mounted) {
       setState(() {
         _bookings = List.from(list);
@@ -498,13 +509,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 children: [
                   Row(
                     children: [
-                      const Text(
-                        'Daftar Pesanan',
-                        style: TextStyle(
-                          fontSize: 16.5,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF062056),
-                          letterSpacing: -0.2,
+                      const Flexible(
+                        child: Text(
+                          'Daftar Pesanan',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF062056),
+                            letterSpacing: -0.2,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -956,26 +971,37 @@ class _OrdersScreenState extends State<OrdersScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      item.bookingId,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF062056),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          item.bookingId,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF062056),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '• ${item.travelDate}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade500,
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          '• ${item.travelDate}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -1136,36 +1162,43 @@ class _OrdersScreenState extends State<OrdersScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isWaiting
-                          ? 'TOTAL TAGIHAN'
-                          : isCancelled
-                          ? 'ESTIMASI REFUND'
-                          : 'TOTAL PEMBAYARAN',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade600,
-                        letterSpacing: 0.5,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isWaiting
+                            ? 'TOTAL TAGIHAN'
+                            : isCancelled
+                            ? 'ESTIMASI REFUND'
+                            : 'TOTAL PEMBAYARAN',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade600,
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                    ),
-                    Text(
-                      _formatCurrency(
-                        isCancelled && item.refundAmount != null
-                            ? item.refundAmount!
-                            : item.totalAmount,
+                      Text(
+                        _formatCurrency(
+                          isCancelled && item.refundAmount != null
+                              ? item.refundAmount!
+                              : item.totalAmount,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF062056),
+                        ),
                       ),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF062056),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
 
                 // Tombol aksi
                 if (isWaiting)
@@ -1192,13 +1225,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   )
                 else if (isPaid)
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
+                            horizontal: 10,
                             vertical: 6,
                           ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -1206,7 +1242,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ),
                         onPressed: () => _openDetail(item),
                         child: const Text(
-                          'Detail Pesanan',
+                          'Detail',
                           style: TextStyle(
                             fontSize: 11,
                             color: Color(0xFF062056),
@@ -1214,14 +1250,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF062056),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
+                            horizontal: 12,
                             vertical: 6,
                           ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),

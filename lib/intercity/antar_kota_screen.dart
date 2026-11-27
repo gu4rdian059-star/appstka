@@ -54,7 +54,13 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
 
   Future<void> _loadStationsAndRecent() async {
     await UserDatabaseService.initialize();
-    final allStations = await UserDatabaseService.getStations();
+    // Muat stasiun dan riwayat pencarian secara PARALEL (Future.wait)
+    final results = await Future.wait<dynamic>([
+      UserDatabaseService.getStations(),
+      UserDatabaseService.getRecentSearches(),
+    ]);
+    final allStations = results[0] as List<StationModel>;
+    final recents = results[1] as List<RecentSearchModel>;
 
     // Inisialisasi asal dari props jika ada
     if (widget.initialOrigin != null) {
@@ -82,7 +88,6 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
       }
     }
 
-    final recents = await UserDatabaseService.getRecentSearches();
     if (mounted) {
       setState(() {
         _recentSearches = List.from(recents);
@@ -707,35 +712,44 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Detail Perjalanan',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF062056),
+                                const Expanded(
+                                  child: Text(
+                                    'Detail Perjalanan',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF062056),
+                                    ),
                                   ),
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _isRoundTrip
-                                        ? const Color(0xFFFFF7ED)
-                                        : const Color(0xFFEFF6FF),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    _isRoundTrip
-                                        ? 'Pulang-Pergi (2 Tiket)'
-                                        : 'Sekali Jalan (1 Tiket)',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
                                       color: _isRoundTrip
-                                          ? const Color(0xFFEA580C)
-                                          : const Color(0xFF2563EB),
+                                          ? const Color(0xFFFFF7ED)
+                                          : const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      _isRoundTrip
+                                          ? 'Pulang-Pergi (2 Tiket)'
+                                          : 'Sekali Jalan (1 Tiket)',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: _isRoundTrip
+                                            ? const Color(0xFFEA580C)
+                                            : const Color(0xFF2563EB),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -763,6 +777,7 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
                                           vertical: 9,
+                                          horizontal: 6,
                                         ),
                                         decoration: BoxDecoration(
                                           color: !_isRoundTrip
@@ -795,16 +810,20 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
                                                   ? const Color(0xFF062056)
                                                   : Colors.grey.shade500,
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              'Sekali Jalan',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                fontSize: 12.5,
-                                                fontWeight: FontWeight.bold,
-                                                color: !_isRoundTrip
-                                                    ? const Color(0xFF062056)
-                                                    : Colors.grey.shade600,
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                'Sekali Jalan',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: !_isRoundTrip
+                                                      ? const Color(0xFF062056)
+                                                      : Colors.grey.shade600,
+                                                ),
                                               ),
                                             ),
                                           ],
@@ -825,6 +844,7 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
                                           vertical: 9,
+                                          horizontal: 6,
                                         ),
                                         decoration: BoxDecoration(
                                           color: _isRoundTrip
@@ -857,16 +877,20 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
                                                   ? const Color(0xFFF26716)
                                                   : Colors.grey.shade500,
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              'Pulang Pergi',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                fontSize: 12.5,
-                                                fontWeight: FontWeight.bold,
-                                                color: _isRoundTrip
-                                                    ? const Color(0xFF062056)
-                                                    : Colors.grey.shade600,
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                'Pulang Pergi',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: _isRoundTrip
+                                                      ? const Color(0xFF062056)
+                                                      : Colors.grey.shade600,
+                                                ),
                                               ),
                                             ),
                                           ],
@@ -1320,30 +1344,34 @@ class _AntarKotaScreenState extends State<AntarKotaScreen> {
                                       color: Colors.grey,
                                     ),
                                     const SizedBox(width: 12),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Penumpang',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey,
-                                            fontWeight: FontWeight.w500,
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Penumpang',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey,
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '$_adultCount Dewasa${_infantCount > 0 ? ', $_infantCount Bayi' : ', 0 Bayi'}',
-                                          style: const TextStyle(
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF062056),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '$_adultCount Dewasa${_infantCount > 0 ? ', $_infantCount Bayi' : ', 0 Bayi'}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF062056),
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                    const Spacer(),
+                                    const SizedBox(width: 8),
                                     const Icon(
                                       Icons.keyboard_arrow_down_rounded,
                                       color: Colors.grey,
@@ -1786,13 +1814,13 @@ class _StationPickerModalState extends State<StationPickerModal> {
   Widget build(BuildContext context) {
     final stations = _filteredStations;
 
-    return Container(
+    return SizedBox(
       height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
+      child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
         children: [
           const SizedBox(height: 12),
           Container(
@@ -2014,6 +2042,7 @@ class _StationPickerModalState extends State<StationPickerModal> {
                   ),
           ),
         ],
+      ),
       ),
     );
   }

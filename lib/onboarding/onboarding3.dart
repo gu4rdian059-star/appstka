@@ -182,6 +182,7 @@ class _Onboarding3State extends State<Onboarding3>
                   Image.asset(
                     'assets/images/logo_train.png',
                     height: 16,
+                    cacheWidth: 96,
                     color: Colors.white,
                   ),
                   const SizedBox(width: 7),

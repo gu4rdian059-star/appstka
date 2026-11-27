@@ -87,7 +87,11 @@ class _Onboarding2State extends State<Onboarding2>
                     children: [
                       Positioned.fromRect(
                         rect: rect,
-                        child: Image.asset(_bgAsset, fit: BoxFit.fill),
+                        child: Image.asset(
+                          _bgAsset,
+                          fit: BoxFit.fill,
+                          cacheWidth: 960,
+                        ),
                       ),
                       Positioned.fill(
                         child: CustomPaint(

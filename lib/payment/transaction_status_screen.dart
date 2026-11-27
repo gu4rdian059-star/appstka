@@ -75,12 +75,16 @@ class TransactionStatusScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Text(
-              'Status Transaksi',
-              style: TextStyle(
-                fontSize: 15.5,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF062056),
+            const Flexible(
+              child: Text(
+                'Status Transaksi',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF062056),
+                ),
               ),
             ),
           ],
@@ -147,12 +151,16 @@ class TransactionStatusScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Text(
-                  'Sistem Pembayaran Terverifikasi',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF16A34A),
+                const Flexible(
+                  child: Text(
+                    'Sistem Pembayaran Terverifikasi',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF16A34A),
+                    ),
                   ),
                 ),
               ],
@@ -191,8 +199,11 @@ class TransactionStatusScreen extends StatelessWidget {
                 color: const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                runSpacing: 2,
                 children: [
                   Text(
                     'Waktu Verifikasi Gateway',
@@ -201,7 +212,6 @@ class TransactionStatusScreen extends StatelessWidget {
                       color: Colors.grey.shade600,
                     ),
                   ),
-                  const SizedBox(width: 6),
                   Text(
                     timeStr,
                     style: const TextStyle(
@@ -326,25 +336,32 @@ class TransactionStatusScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(
-                    Icons.receipt_rounded,
-                    size: 16,
-                    color: Color(0xFF0256B8),
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    'INFORMASI TRANSAKSI',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: 0.5,
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.receipt_rounded,
+                      size: 16,
+                      color: Color(0xFF0256B8),
                     ),
-                  ),
-                ],
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'INFORMASI TRANSAKSI',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -387,12 +404,16 @@ class TransactionStatusScreen extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        Text(
-                          booking.bookingId,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
+                        Flexible(
+                          child: Text(
+                            booking.bookingId,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                         ),
                         IconButton(
@@ -656,15 +677,20 @@ class TransactionStatusScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'RINGKASAN TIKET DIAMANKAN',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
-                  letterSpacing: 0.5,
+              const Expanded(
+                child: Text(
+                  'RINGKASAN TIKET DIAMANKAN',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -741,27 +767,38 @@ class TransactionStatusScreen extends StatelessWidget {
           ),
           const Divider(height: 18),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${booking.departureTime} • ${booking.originName} (${booking.originCode})',
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF334155),
+              Expanded(
+                child: Text(
+                  '${booking.departureTime} • ${booking.originName} (${booking.originCode})',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF334155),
+                  ),
                 ),
               ),
-              const Icon(
-                Icons.arrow_forward_rounded,
-                size: 12,
-                color: Colors.grey,
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6),
+                child: Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 12,
+                  color: Colors.grey,
+                ),
               ),
-              Text(
-                '${booking.arrivalTime} • ${booking.destName} (${booking.destCode})',
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF334155),
+              Expanded(
+                child: Text(
+                  '${booking.arrivalTime} • ${booking.destName} (${booking.destCode})',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF334155),
+                  ),
                 ),
               ),
             ],

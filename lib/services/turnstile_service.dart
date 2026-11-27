@@ -28,8 +28,9 @@ class TurnstileService {
   static String get siteKey => AppEnv.turnstileSiteKey;
   static String get secretKey => AppEnv.turnstileSecretKey;
 
-  /// Menjalankan verifikasi token Turnstile ke endpoint resmi Cloudflare `siteverify`.
-  static Future<TurnstileVerifyResult> verifyChallenge() async {
+  /// Menjalankan verifikasi token Turnstile melalui Secure API Gateway (server-side siteverify)
+  /// agar pada Flutter Web tidak terkena CORS dan TURNSTILE_SECRET_KEY tidak terekspos ke browser.
+  static Future<TurnstileVerifyResult> verifyChallenge({String? responseToken}) async {
     if (!isEnabled) {
       return const TurnstileVerifyResult(
         verified: true,
@@ -51,68 +52,122 @@ class TurnstileService {
       );
     }
 
-    final generatedToken =
-        'cf.turnstile.XXXX.DUMMY.TOKEN.${DateTime.now().millisecondsSinceEpoch}';
+    final tokenToVerify = (responseToken != null && responseToken.trim().isNotEmpty)
+        ? responseToken.trim()
+        : 'cf.turnstile.XXXX.DUMMY.TOKEN.${DateTime.now().millisecondsSinceEpoch}';
 
+    // 1. Jalur Utama (WAJIB untuk Web & disarankan untuk semua platform):
+    //    Verifikasi melalui TKA Secure API Gateway -> server memanggil Cloudflare siteverify tanpa CORS
     try {
-      final response = await http
+      final gatewayUri = Uri.parse(
+        '${AppEnv.apiGatewayUrl}/api/security/turnstile/verify',
+      );
+      final gwResp = await http
           .post(
-            Uri.parse(_siteVerifyUrl),
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
+            gatewayUri,
+            headers: const {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
             },
-            body: {
-              'secret': currentSecretKey,
-              'response': generatedToken,
-            },
+            body: jsonEncode({'response': tokenToVerify}),
           )
-          .timeout(const Duration(seconds: 6));
+          .timeout(const Duration(seconds: 8));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final success = data['success'] == true;
-        if (success) {
+      final gwData = jsonDecode(gwResp.body);
+      if (gwData is Map) {
+        final ok = gwResp.statusCode >= 200 &&
+            gwResp.statusCode < 300 &&
+            (gwData['verified'] == true || gwData['success'] == true);
+        final msg = (gwData['message'] ?? '').toString();
+        if (ok) {
           debugPrint(
-            '✅ Cloudflare Turnstile siteverify berhasil (hostname: ${data['hostname'] ?? 'local'})',
+            '✅ Cloudflare Turnstile terverifikasi lewat Secure API Gateway (hostname: ${gwData['hostname'] ?? 'local'})',
           );
           return TurnstileVerifyResult(
             verified: true,
-            token: generatedToken,
-            message: 'Verifikasi Cloudflare Turnstile berhasil.',
-          );
-        } else {
-          final errCodes = data['error-codes'] ?? [];
-          debugPrint('❌ Cloudflare Turnstile siteverify gagal: $errCodes');
-          return TurnstileVerifyResult(
-            verified: false,
-            message: 'Verifikasi Turnstile gagal ($errCodes).',
+            token: tokenToVerify,
+            message: msg.isNotEmpty
+                ? msg
+                : 'Verifikasi Cloudflare Turnstile berhasil.',
           );
         }
+        return TurnstileVerifyResult(
+          verified: false,
+          message: msg.isNotEmpty
+              ? msg
+              : 'Verifikasi Cloudflare Turnstile gagal.',
+        );
       }
     } catch (e) {
-      // Pada Flutter Web (CORS) atau saat offline lokal, validasi dummy key resmi Cloudflare
-      debugPrint(
-        'ℹ️ Catatan koneksi langsung siteverify Cloudflare ($e), memvalidasi key Turnstile...',
-      );
+      debugPrint('ℹ️ Gateway Turnstile (${AppEnv.apiGatewayUrl}) tidak terjangkau: $e');
+      if (kIsWeb) {
+        // Pada Web, JANGAN panggil challenges.cloudflare.com langsung (pasti diblokir CORS).
+        // Jika menggunakan official testing sitekey lokal saat Gateway mati, tetap izinkan testing lokal yang jelas.
+        if (currentSiteKey == '1x00000000000000000000AA') {
+          return TurnstileVerifyResult(
+            verified: true,
+            token: tokenToVerify,
+            message: 'Verifikasi Turnstile (Mode Testing Lokal — Gateway offline).',
+          );
+        }
+        return TurnstileVerifyResult(
+          verified: false,
+          message:
+              'Tidak dapat terhubung ke Secure API Gateway (${AppEnv.apiGatewayUrl}) untuk verifikasi Turnstile.',
+        );
+      }
     }
 
-    // Validasi Testing Dummy Key Resmi Cloudflare (1x00000000000000000000AA)
+    // 2. Jalur Fallback Native (Android/iOS/Desktop) ketika Gateway lokal tidak berjalan:
+    if (currentSecretKey.isNotEmpty) {
+      try {
+        final response = await http
+            .post(
+              Uri.parse(_siteVerifyUrl),
+              headers: const {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: {
+                'secret': currentSecretKey,
+                'response': tokenToVerify,
+              },
+            )
+            .timeout(const Duration(seconds: 6));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final success = data['success'] == true;
+          if (success) {
+            debugPrint(
+              '✅ Cloudflare Turnstile siteverify native berhasil (hostname: ${data['hostname'] ?? 'local'})',
+            );
+            return TurnstileVerifyResult(
+              verified: true,
+              token: tokenToVerify,
+              message: 'Verifikasi Cloudflare Turnstile berhasil.',
+            );
+          } else {
+            final errCodes = data['error-codes'] ?? [];
+            debugPrint('❌ Cloudflare Turnstile siteverify gagal: $errCodes');
+            return TurnstileVerifyResult(
+              verified: false,
+              message: 'Verifikasi Turnstile gagal ($errCodes).',
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('ℹ️ Koneksi native siteverify Cloudflare gagal: $e');
+      }
+    }
+
+    // Validasi Testing Dummy Key Resmi Cloudflare pada lingkungan offline/test
     if (currentSiteKey == '1x00000000000000000000AA' &&
         currentSecretKey == '1x0000000000000000000000000000000AA') {
-      await Future.delayed(const Duration(milliseconds: 450));
+      await Future.delayed(const Duration(milliseconds: 250));
       return TurnstileVerifyResult(
         verified: true,
-        token: generatedToken,
+        token: tokenToVerify,
         message: 'Verifikasi Cloudflare Turnstile (Testing Key) berhasil.',
-      );
-    }
-
-    if (currentSiteKey.isNotEmpty && currentSecretKey.isNotEmpty) {
-      await Future.delayed(const Duration(milliseconds: 450));
-      return TurnstileVerifyResult(
-        verified: true,
-        token: generatedToken,
-        message: 'Verifikasi Cloudflare Turnstile berhasil.',
       );
     }
 

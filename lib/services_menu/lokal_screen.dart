@@ -14,6 +14,13 @@ class _LokalScreenState extends State<LokalScreen> {
   String _selectedRegion =
       'Jawa Timur'; // Jabodetabek, Jawa Barat, Jawa Tengah, Jawa Timur
 
+  @override
+  void initState() {
+    super.initState();
+    UserDatabaseService.getStations(refreshRemote: true);
+    UserDatabaseService.getAllTrainSchedules(refreshRemote: true);
+  }
+
   final Map<String, List<Map<String, dynamic>>> _regionalTrains = {
     'Jawa Timur': [
       {

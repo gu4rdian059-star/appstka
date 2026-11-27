@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../services/user_db_service.dart';
+
 class KomuterScreen extends StatefulWidget {
   const KomuterScreen({super.key});
 
@@ -9,6 +11,13 @@ class KomuterScreen extends StatefulWidget {
 
 class _KomuterScreenState extends State<KomuterScreen> {
   String _selectedLine = 'Bogor Line';
+
+  @override
+  void initState() {
+    super.initState();
+    UserDatabaseService.getStations(refreshRemote: true);
+    UserDatabaseService.getAllTrainSchedules(refreshRemote: true);
+  }
 
   final List<Map<String, dynamic>> _lines = [
     {

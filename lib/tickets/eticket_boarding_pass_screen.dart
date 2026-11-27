@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/user_db_service.dart';
-import '../services/supabase_storage_service.dart';
 import '../orders/refund_screen.dart';
 import '../tracking/live_tracking_screen.dart';
 
@@ -40,12 +39,6 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
   void initState() {
     super.initState();
     _startQrTimer();
-    SupabaseStorageService.ensureTicketQrUploaded(
-      bookingId: widget.booking.bookingId,
-      pnr: widget.booking.bookingId,
-      trainName: widget.booking.trainName,
-      seatNumber: widget.booking.seatNumber,
-    );
   }
 
   void _startQrTimer() {
@@ -94,8 +87,7 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
   }
 
   void _showEnlargedQr() {
-    final qrUrl = widget.booking.qrCodeUrl ??
-        SupabaseStorageService.getTicketQrUrl(widget.booking.bookingId);
+    final qrUrl = widget.booking.qrCodeUrl;
 
     showDialog(
       context: context,
@@ -123,16 +115,21 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: Image.network(
-                  qrUrl,
-                  width: 220,
-                  height: 220,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => CustomPaint(
-                    size: const Size(220, 220),
-                    painter: _RealisticQrCodePainter(),
-                  ),
-                ),
+                child: (qrUrl != null && qrUrl.isNotEmpty)
+                    ? Image.network(
+                        qrUrl,
+                        width: 220,
+                        height: 220,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => CustomPaint(
+                          size: const Size(220, 220),
+                          painter: _RealisticQrCodePainter(),
+                        ),
+                      )
+                    : CustomPaint(
+                        size: const Size(220, 220),
+                        painter: _RealisticQrCodePainter(),
+                      ),
               ),
             ),
             const SizedBox(height: 16),
@@ -340,6 +337,7 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF26716),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -363,10 +361,12 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                         _isDownloadingPdf
                             ? 'Mengunduh...'
                             : 'Download PDF Tiket',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 12.5,
+                          fontSize: 12,
                         ),
                       ),
                     ),
@@ -380,6 +380,7 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF062056),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -392,10 +393,12 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                       ),
                       label: const Text(
                         'Bagikan',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 12.5,
+                          fontSize: 12,
                         ),
                       ),
                     ),
@@ -412,7 +415,10 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 8,
+                      ),
                       side: const BorderSide(color: Color(0xFFCBD5E1)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -430,13 +436,15 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                     },
                     icon: const Icon(
                       Icons.history_rounded,
-                      size: 16,
+                      size: 15,
                       color: Color(0xFF0F172A),
                     ),
                     label: const Text(
                       'Ubah Jadwal',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF0F172A),
                       ),
@@ -447,7 +455,10 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 8,
+                      ),
                       side: const BorderSide(color: Color(0xFFFECDD3)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -468,13 +479,15 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                     },
                     icon: const Icon(
                       Icons.cancel_outlined,
-                      size: 16,
+                      size: 15,
                       color: Color(0xFFDC2626),
                     ),
                     label: const Text(
                       'Batalkan & Refund',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFFDC2626),
                       ),
@@ -538,15 +551,19 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                     color: Color(0xFF0256B8),
                   ),
                   SizedBox(width: 8),
-                  Text(
-                    'Butuh bantuan di perjalanan?',
-                    style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                  Expanded(
+                    child: Text(
+                      'Butuh bantuan di perjalanan?',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    ),
                   ),
-                  Spacer(),
+                  SizedBox(width: 6),
                   Text(
                     'Hubungi Kondektur ➔',
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFFEA580C),
                     ),
@@ -841,13 +858,17 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                 ),
                 Row(
                   children: [
-                    Text(
-                      pnr,
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
-                        letterSpacing: 0.5,
+                    Flexible(
+                      child: Text(
+                        pnr,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -917,7 +938,10 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: Row(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -937,7 +961,6 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 5,
@@ -956,17 +979,14 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              b.trainName.replaceAll('KA ', ''),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                          Text(
+                            b.trainName.replaceAll('KA ', ''),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
                         ],
@@ -1011,144 +1031,167 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
           Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'BERANGKAT',
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    Text(
-                      b.departureTime,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    Text(
-                      '${b.originName} (${b.originCode})',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF334155),
-                      ),
-                    ),
-                    const Text(
-                      'Jalur 03 • Peron Eksekutif',
-                      style: TextStyle(fontSize: 9.5, color: Colors.grey),
-                    ),
-                    Text(
-                      b.travelDate,
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                ),
-                Column(
-                  children: [
-                    const Text(
-                      '8j 05m',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Container(
-                          width: 4,
-                          height: 4,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEA580C),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        Container(
-                          width: 26,
-                          height: 1,
-                          color: Colors.grey.shade300,
-                        ),
-                        Container(
-                          width: 4,
-                          height: 4,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF0256B8),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDCFCE7),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'Langsung',
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'BERANGKAT',
                         style: TextStyle(
                           fontSize: 8.5,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF16A34A),
+                          color: Colors.grey,
                         ),
                       ),
-                    ),
-                  ],
+                      Text(
+                        b.departureTime,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        '${b.originName} (${b.originCode})',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const Text(
+                        'Jalur 03 • Peron Eksekutif',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 9.5, color: Colors.grey),
+                      ),
+                      Text(
+                        b.travelDate,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text(
-                      'TIBA',
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Column(
+                    children: [
+                      const Text(
+                        '8j 05m',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
                       ),
-                    ),
-                    Text(
-                      b.arrivalTime,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 4,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFEA580C),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          Container(
+                            width: 22,
+                            height: 1,
+                            color: Colors.grey.shade300,
+                          ),
+                          Container(
+                            width: 4,
+                            height: 4,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF0256B8),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    Text(
-                      '${b.destName} (${b.destCode})',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF334155),
+                      const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'Langsung',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF16A34A),
+                          ),
+                        ),
                       ),
-                    ),
-                    const Text(
-                      'Peron 1 Kedatangan',
-                      style: TextStyle(fontSize: 9.5, color: Colors.grey),
-                    ),
-                    Text(
-                      b.travelDate,
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        color: Colors.grey.shade500,
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'TIBA',
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
                       ),
-                    ),
-                  ],
+                      Text(
+                        b.arrivalTime,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        '${b.destName} (${b.destCode})',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const Text(
+                        'Peron 1 Kedatangan',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 9.5, color: Colors.grey),
+                      ),
+                      Text(
+                        b.travelDate,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1202,12 +1245,16 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                                 color: Color(0xFF0256B8),
                               ),
                               SizedBox(width: 3),
-                              Text(
-                                'Jendela (Window)',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
+                              Flexible(
+                                child: Text(
+                                  'Jendela (Window)',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF64748B),
+                                  ),
                                 ),
                               ),
                             ],
@@ -1221,12 +1268,16 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                                 color: Color(0xFF0256B8),
                               ),
                               SizedBox(width: 3),
-                              Text(
-                                'Searah KA',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
+                              Flexible(
+                                child: Text(
+                                  'Searah KA',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF64748B),
+                                  ),
                                 ),
                               ),
                             ],
@@ -1342,12 +1393,16 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      'TKA Face Recognition Gate',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF14532D),
+                    Flexible(
+                      child: Text(
+                        'TKA Face Recognition Gate',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF14532D),
+                        ),
                       ),
                     ),
                     SizedBox(width: 6),
@@ -1375,8 +1430,7 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
   }
 
   Widget _buildQrCodeCard() {
-    final qrUrl = widget.booking.qrCodeUrl ??
-        SupabaseStorageService.getTicketQrUrl(widget.booking.bookingId);
+    final qrUrl = widget.booking.qrCodeUrl;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1387,7 +1441,6 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
       ),
       child: Column(
         children: [
-          // QR Barcode Realistis dari Supabase Storage (tickets-qr)
           Center(
             child: Container(
               width: 180,
@@ -1399,29 +1452,21 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: Image.network(
-                  qrUrl,
-                  width: 180,
-                  height: 180,
-                  fit: BoxFit.contain,
-                  loadingBuilder: (ctx, child, progress) {
-                    if (progress == null) return child;
-                    return const Center(
-                      child: SizedBox(
-                        width: 32,
-                        height: 32,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Color(0xFF062056),
+                child: (qrUrl != null && qrUrl.isNotEmpty)
+                    ? Image.network(
+                        qrUrl,
+                        width: 180,
+                        height: 180,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => CustomPaint(
+                          size: const Size(180, 180),
+                          painter: _RealisticQrCodePainter(),
                         ),
+                      )
+                    : CustomPaint(
+                        size: const Size(180, 180),
+                        painter: _RealisticQrCodePainter(),
                       ),
-                    );
-                  },
-                  errorBuilder: (_, _, _) => CustomPaint(
-                    size: const Size(180, 180),
-                    painter: _RealisticQrCodePainter(),
-                  ),
-                ),
               ),
             ),
           ),
@@ -1440,12 +1485,16 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                'QR Dinamis berganti dalam ${_qrRefreshSeconds}s',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFEA580C),
+              Flexible(
+                child: Text(
+                  'QR Dinamis berganti dalam ${_qrRefreshSeconds}s',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFEA580C),
+                  ),
                 ),
               ),
               const SizedBox(width: 4),
@@ -1459,8 +1508,11 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
 
           const SizedBox(height: 4),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 4,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1469,27 +1521,30 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFBFDBFE)),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
+                  children: [
                     Icon(
                       Icons.cloud_done_rounded,
                       size: 11,
                       color: Color(0xFF1D4ED8),
                     ),
                     SizedBox(width: 4),
-                    Text(
-                      'Supabase Storage (tickets-qr)',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        color: Color(0xFF1D4ED8),
-                        fontWeight: FontWeight.bold,
+                    Flexible(
+                      child: Text(
+                        'Supabase Storage (tickets-qr)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          color: Color(0xFF1D4ED8),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 6),
               Text(
                 '• Enkripsi Level 3',
                 style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
@@ -1504,7 +1559,10 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 6,
+                    ),
                     side: const BorderSide(color: Color(0xFFCBD5E1)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -1517,7 +1575,9 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                     color: Color(0xFF0F172A),
                   ),
                   label: const Text(
-                    'Kecerahan Maksimal',
+                    'Kecerahan Maks.',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
@@ -1531,7 +1591,10 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF062056),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 6,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -1544,6 +1607,8 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                   ),
                   label: const Text(
                     'Perbesar QR',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
@@ -1573,24 +1638,31 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(
-                    Icons.directions_subway_rounded,
-                    size: 16,
-                    color: Color(0xFFEA580C),
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    'Panduan Stasiun Real-Time',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.directions_subway_rounded,
+                      size: 16,
+                      color: Color(0xFFEA580C),
                     ),
-                  ),
-                ],
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Panduan Stasiun Real-Time',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -1636,12 +1708,16 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            'Stasiun ${b.originName} (${b.originCode})',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
+                          Flexible(
+                            child: Text(
+                              'Stasiun ${b.originName} (${b.originCode})',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -1702,12 +1778,16 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                         color: Color(0xFF062056),
                       ),
                       SizedBox(width: 6),
-                      Text(
-                        'Peta Akses Peron',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF062056),
+                      Flexible(
+                        child: Text(
+                          'Peta Akses Peron',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF062056),
+                          ),
                         ),
                       ),
                     ],
@@ -1734,12 +1814,16 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
                         color: Color(0xFF062056),
                       ),
                       SizedBox(width: 6),
-                      Text(
-                        'Lounge Eksekutif',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF062056),
+                      Flexible(
+                        child: Text(
+                          'Lounge Eksekutif',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF062056),
+                          ),
                         ),
                       ),
                     ],
@@ -1767,24 +1851,31 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.card_giftcard_rounded,
-                    size: 16,
-                    color: Color(0xFFEA580C),
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    'Layanan & Fasilitas Termasuk',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.card_giftcard_rounded,
+                      size: 16,
+                      color: Color(0xFFEA580C),
                     ),
-                  ),
-                ],
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Layanan & Fasilitas Termasuk',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              SizedBox(width: 8),
               Text(
                 '4 Layanan Aktif',
                 style: TextStyle(
@@ -1943,12 +2034,16 @@ class _ETicketBoardingPassScreenState extends State<ETicketBoardingPassScreen> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+                    Flexible(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),

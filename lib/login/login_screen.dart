@@ -928,6 +928,7 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Image.asset(
                     'assets/images/logo_tka_full.png',
                     height: 42,
+                    cacheWidth: 200,
                     fit: BoxFit.contain,
                   ),
                 ),

@@ -1,0 +1,1256 @@
+{
+  "info": {
+    "_postman_id": "48b6f3a2-7d1e-4c5b-9a8f-2e3d4c5b6a7b",
+    "name": "TKA Supabase API Suite",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Tes Koneksi & Health Check",
+      "item": [
+        {
+          "name": "0.1 Health Check Supabase Auth",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/v1/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "v1",
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "0.2 Ping Database (Ambil 1 Stasiun)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/stations?select=code,name&limit=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "stations"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "code,name"
+                },
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Auth & Autentikasi",
+      "item": [
+        {
+          "name": "1.1 Sign Up (Daftar Akun Baru)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/v1/signup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "v1",
+                "signup"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"penumpang.tka@gmail.com\",\n  \"password\": \"Password123!\",\n  \"data\": {\n    \"full_name\": \"Penumpang TKA Hebat\",\n    \"phone\": \"081234567890\",\n    \"role\": \"passenger\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.2 Login (Ambil Token JWT Otomatis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/v1/token?grant_type=password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "v1",
+                "token"
+              ],
+              "query": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"penumpang.tka@gmail.com\",\n  \"password\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.3 Get Current User Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/v1/user",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "v1",
+                "user"
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.4 Logout Sesi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/v1/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "v1",
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Users (Tabel Pengguna Tunggal)",
+      "item": [
+        {
+          "name": "2.1 GET Semua Data User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/users?select=*",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.2 GET User by Email",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/users?email=eq.penumpang.tka@gmail.com",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "eq.penumpang.tka@gmail.com"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.3 POST Tambah User Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"penumpang.tka@gmail.com\",\n  \"full_name\": \"Penumpang TKA Hebat\",\n  \"phone\": \"081234567890\",\n  \"role\": \"passenger\",\n  \"balance\": 250000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.4 PATCH Update Profil & Saldo",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/users?email=eq.penumpang.tka@gmail.com",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "eq.penumpang.tka@gmail.com"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Penumpang TKA Hebat (VIP)\",\n  \"phone\": \"089876543210\",\n  \"balance\": 500000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.5 DELETE User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/users?email=eq.penumpang.tka@gmail.com",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "eq.penumpang.tka@gmail.com"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Train Schedules (Jadwal Kereta)",
+      "item": [
+        {
+          "name": "3.1 GET Semua Jadwal Kereta",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/train_schedules?select=*",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "train_schedules"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.2 GET Cari Jadwal (Gambir -> Bandung)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/train_schedules?origin_code=eq.GMR&dest_code=eq.BD",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "train_schedules"
+              ],
+              "query": [
+                {
+                  "key": "origin_code",
+                  "value": "eq.GMR"
+                },
+                {
+                  "key": "dest_code",
+                  "value": "eq.BD"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.3 POST Tambah Jadwal Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/train_schedules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "train_schedules"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"train_number\": \"KA-102\",\n  \"train_name\": \"Argo Parahyangan\",\n  \"category\": \"Eksekutif\",\n  \"origin_code\": \"GMR\",\n  \"origin_name\": \"Stasiun Gambir\",\n  \"origin_city\": \"Jakarta\",\n  \"dest_code\": \"BD\",\n  \"dest_name\": \"Stasiun Bandung\",\n  \"dest_city\": \"Bandung\",\n  \"departure_time\": \"08:00:00\",\n  \"arrival_time\": \"11:00:00\",\n  \"duration\": \"3j 0m\",\n  \"base_fare\": 150000,\n  \"fare\": 150000,\n  \"status\": \"Tersedia\",\n  \"capacity\": 300,\n  \"booked_seats\": 0,\n  \"available_seats\": 300,\n  \"available_classes\": \"Eksekutif, Bisnis\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "3.4 PATCH Update Tarif / Kuota Kursi",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/train_schedules?train_number=eq.KA-102",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "train_schedules"
+              ],
+              "query": [
+                {
+                  "key": "train_number",
+                  "value": "eq.KA-102"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fare\": 160000,\n  \"available_seats\": 285\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "3.5 DELETE Jadwal Kereta",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/train_schedules?train_number=eq.KA-102",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "train_schedules"
+              ],
+              "query": [
+                {
+                  "key": "train_number",
+                  "value": "eq.KA-102"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Stations (Stasiun Kereta)",
+      "item": [
+        {
+          "name": "4.1 GET Semua Stasiun",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/stations?select=*&order=city.asc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "stations"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                },
+                {
+                  "key": "order",
+                  "value": "city.asc"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.2 POST Tambah Stasiun Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/stations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "stations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"ML\",\n  \"name\": \"Stasiun Malang\",\n  \"city\": \"Malang\",\n  \"region\": \"Jawa Timur\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "4.3 PATCH Update Nama Stasiun",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/stations?code=eq.ML",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "stations"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "eq.ML"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Stasiun Malang Kotabaru\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "4.4 DELETE Stasiun",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/stations?code=eq.ML",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "stations"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "eq.ML"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Bookings (Pemesanan Tiket)",
+      "item": [
+        {
+          "name": "5.1 GET Semua Pemesanan (Terbaru)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/bookings?select=*&order=created_at.desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "bookings"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                },
+                {
+                  "key": "order",
+                  "value": "created_at.desc"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.2 GET Booking Milik Penumpang Tertentu",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/bookings?passenger_email=eq.penumpang.tka@gmail.com",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "bookings"
+              ],
+              "query": [
+                {
+                  "key": "passenger_email",
+                  "value": "eq.penumpang.tka@gmail.com"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.3 POST Buat Booking Tiket Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/bookings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"TKA-20261124-001\",\n  \"passenger_name\": \"Penumpang TKA Hebat\",\n  \"passenger_email\": \"penumpang.tka@gmail.com\",\n  \"passenger_phone\": \"081234567890\",\n  \"passenger_nik\": \"3578012345670001\",\n  \"train_number\": \"KA-102\",\n  \"train_name\": \"Argo Parahyangan\",\n  \"train_class\": \"Eksekutif\",\n  \"wagon_class\": \"EKS-1\",\n  \"route\": \"GMR -> BD\",\n  \"origin_code\": \"GMR\",\n  \"origin_name\": \"Stasiun Gambir\",\n  \"origin_city\": \"Jakarta\",\n  \"dest_code\": \"BD\",\n  \"dest_name\": \"Stasiun Bandung\",\n  \"dest_city\": \"Bandung\",\n  \"travel_date\": \"2026-11-25\",\n  \"departure_time\": \"08:00:00\",\n  \"arrival_time\": \"11:00:00\",\n  \"seat_number\": \"4B\",\n  \"amount\": 150000,\n  \"total_amount\": 150000,\n  \"status\": \"Lunas\",\n  \"payment_method\": \"TKAPay\",\n  \"va_number\": \"-\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "5.4 PATCH Update Status Booking",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/bookings?booking_id=eq.TKA-20261124-001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "bookings"
+              ],
+              "query": [
+                {
+                  "key": "booking_id",
+                  "value": "eq.TKA-20261124-001"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Dibatalkan\",\n  \"cancel_reason\": \"Salah pilih jam keberangkatan\",\n  \"refund_amount\": 112500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "5.5 DELETE Booking",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/bookings?booking_id=eq.TKA-20261124-001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "bookings"
+              ],
+              "query": [
+                {
+                  "key": "booking_id",
+                  "value": "eq.TKA-20261124-001"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Payments (Pembayaran)",
+      "item": [
+        {
+          "name": "6.1 GET Riwayat Pembayaran",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/payments?select=*",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "payments"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "6.2 POST Catat Transaksi Pembayaran",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"PAY-20261124-8899\",\n  \"booking_id\": \"TKA-20261124-001\",\n  \"payment_method\": \"TKAPay\",\n  \"payment_channel\": \"Saldo Akun\",\n  \"reference_number\": \"REF-99887766\",\n  \"amount\": 150000,\n  \"status\": \"SUCCESS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Cancellations (Pembatalan Tiket)",
+      "item": [
+        {
+          "name": "7.1 GET Semua Riwayat Pembatalan",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/cancellations?select=*",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "cancellations"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.2 POST Ajukan Pembatalan Tiket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/cancellations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "cancellations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"TKA-20261124-001\",\n  \"reason\": \"Perubahan tanggal keberangkatan\",\n  \"refund_amount\": 112500,\n  \"status\": \"DIPROSES\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Recent Searches (Pencarian Rute)",
+      "item": [
+        {
+          "name": "8.1 GET Riwayat Pencarian Rute",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/recent_searches?select=*",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "recent_searches"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "8.2 POST Simpan Riwayat Pencarian",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/recent_searches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "recent_searches"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origin_code\": \"GMR\",\n  \"origin_name\": \"Stasiun Gambir\",\n  \"dest_code\": \"BD\",\n  \"dest_name\": \"Stasiun Bandung\",\n  \"travel_date\": \"2026-11-25\",\n  \"passengers\": \"1 Dewasa\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "8.3 DELETE Riwayat Pencarian",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/recent_searches?origin_code=eq.GMR",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rest",
+                "v1",
+                "recent_searches"
+              ],
+              "query": [
+                {
+                  "key": "origin_code",
+                  "value": "eq.GMR"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -575,17 +575,20 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
   }) {
     final isSelected = _selectedMethod == id;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isSelected ? const Color(0xFF0256B8) : const Color(0xFFE2E8F0),
-          width: isSelected ? 1.8 : 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color:
+                isSelected ? const Color(0xFF0256B8) : const Color(0xFFE2E8F0),
+            width: isSelected ? 1.8 : 1,
+          ),
         ),
-      ),
-      child: ListTile(
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
         onTap: () => setState(() => _selectedMethod = id),
         leading:
             customLeading ??
@@ -638,6 +641,7 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
                 color: Colors.grey,
                 size: 20,
               ),
+        ),
       ),
     );
   }
@@ -658,44 +662,53 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
       child: SafeArea(
         top: false,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Row(
-                  children: [
-                    Text(
-                      'Total Price',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w600,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'Total Price',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 14,
-                      color: Colors.grey,
-                    ),
-                  ],
-                ),
-                Text(
-                  _formatCurrency(widget.totalAmount),
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF0F172A),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 14,
+                        color: Colors.grey,
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  Text(
+                    _formatCurrency(widget.totalAmount),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(width: 10),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0256B8),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
+                  horizontal: 20,
                   vertical: 12,
                 ),
                 shape: RoundedRectangleBorder(
@@ -716,8 +729,10 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
                       _selectedMethod == 'QRIS'
                           ? 'Bayar QRIS'
                           : 'Bayar Sekarang',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),

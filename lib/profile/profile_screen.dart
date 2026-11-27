@@ -36,15 +36,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadUserSession() async {
-    final savedName = await SessionService.getUserName();
-    final savedEmail = await SessionService.getUserEmail();
-    final savedPhone = await SessionService.getUserPhone();
-    final points = await SessionService.getUserPoints();
-    final tier = await SessionService.getUserTier();
-    final avatar = await SessionService.getUserAvatar();
-    final completed = await UserDatabaseService.getBookings(
-      statusFilter: 'Selesai',
-    );
+    // Paralelkan seluruh pengambilan data sesi & tiket selesai (bukan serial 7x await!)
+    final results = await Future.wait<dynamic>([
+      SessionService.getUserName(),
+      SessionService.getUserEmail(),
+      SessionService.getUserPhone(),
+      SessionService.getUserPoints(),
+      SessionService.getUserTier(),
+      SessionService.getUserAvatar(),
+      UserDatabaseService.getBookings(statusFilter: 'Selesai'),
+    ]);
+
+    final savedName = results[0] as String;
+    final savedEmail = results[1] as String?;
+    final savedPhone = results[2] as String;
+    final points = results[3] as int;
+    final tier = results[4] as String;
+    final avatar = results[5] as String?;
+    final completed = results[6] as List<BookingModel>;
 
     if (mounted) {
       setState(() {
@@ -64,13 +73,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
     }
 
-    // Ambil data sinkronisasi terbaru dari Supabase profiles jika tersedia
+    // Ambil data sinkronisasi terbaru dari Supabase users jika tersedia
     try {
       final cleanEmail = (savedEmail ?? '').toLowerCase().trim();
       if (cleanEmail.isNotEmpty) {
         final client = SupabaseService.client;
         final res = await client
-            .from('profiles')
+            .from('users')
             .select()
             .eq('email', cleanEmail)
             .maybeSingle();
@@ -196,6 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Image.asset(
               'assets/images/logo_tka_full.png',
               height: 24,
+              cacheWidth: 120,
               fit: BoxFit.contain,
               errorBuilder: (_, _, _) => const Text(
                 'TKA',
@@ -477,25 +487,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '$_completedTrips Rute Selesai',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF062056),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$_completedTrips Rute Selesai',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF062056),
+                                ),
                               ),
-                            ),
-                            const Text(
-                              'Perjalanan',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                color: Colors.grey,
+                              const Text(
+                                'Perjalanan',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: Colors.grey,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -700,12 +716,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
+        Material(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
+            side: BorderSide(color: Colors.grey.shade200),
           ),
+          clipBehavior: Clip.antiAlias,
           child: Column(
             children: List.generate(items.length, (i) {
               final item = items[i];

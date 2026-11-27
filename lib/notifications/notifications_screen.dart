@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../services/user_db_service.dart';
+
 class NotificationsScreen extends StatefulWidget {
   final VoidCallback? onOpenTickets;
   final VoidCallback? onOpenOrders;
@@ -14,12 +16,93 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   int _activeFilter =
       0; // 0: Semua, 1: Transaksi, 2: Perjalanan, 3: Info Sistem
 
-  final List<String> _filters = [
+  List<String> _filters = [
     'Semua (5)',
     'Transaksi (4)',
     'Perjalanan (1)',
     'Info Sistem (0)',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _syncNotificationsFromPostgrest();
+  }
+
+  Future<void> _syncNotificationsFromPostgrest() async {
+    try {
+      final results = await Future.wait([
+        UserDatabaseService.getBookings(refreshRemote: true),
+        UserDatabaseService.getPaymentsFromSupabase(),
+      ]);
+      final bookings = results[0] as List<BookingModel>;
+      final payments = results[1] as List<Map<String, dynamic>>;
+      final dynamicItems = <Map<String, dynamic>>[];
+
+      for (final p in payments.take(3)) {
+        final bid = (p['booking_id'] ?? '').toString();
+        final ref = (p['reference_number'] ?? p['payment_id'] ?? '').toString();
+        final amt = int.tryParse(p['amount']?.toString() ?? '0') ?? 0;
+        final isTopUp = bid.toUpperCase().contains('TOPUP') || ref.startsWith('TOP-');
+        if (isTopUp) {
+          dynamicItems.add({
+            'type': 'transaksi',
+            'tag': 'TOP UP',
+            'tagColor': const Color(0xFF10B981),
+            'icon': Icons.account_balance_wallet_rounded,
+            'time': 'Baru saja',
+            'title': 'Top Up Saldo TKAPay Berhasil',
+            'desc':
+                'Pengisian saldo sebesar Rp$amt via ${p['payment_method'] ?? 'Virtual Account'} telah masuk ke akun Anda.',
+            'subInfo': 'Ref: $ref • Berhasil',
+          });
+        }
+      }
+
+      for (final b in bookings.take(5)) {
+        final isPaid = b.status == 'Sudah Dibayar';
+        final isCancelled = b.status == 'Dibatalkan';
+        dynamicItems.add({
+          'type': 'transaksi',
+          'tag': isCancelled ? 'REFUND' : (isPaid ? 'TIKET' : 'RESERVASI'),
+          'tagColor': isCancelled
+              ? const Color(0xFFEF4444)
+              : (isPaid ? const Color(0xFF0284C7) : const Color(0xFFF26716)),
+          'icon': isCancelled
+              ? Icons.assignment_return_rounded
+              : Icons.confirmation_number_outlined,
+          'time': b.travelDate,
+          'title': isCancelled
+              ? 'Pembatalan Tiket (${b.bookingId})'
+              : 'Tiket ${b.trainName} (${b.bookingId})',
+          'desc':
+              'Rute ${b.originName} (${b.originCode}) ➔ ${b.destName} (${b.destCode}) • Status: ${b.status}.',
+          'subInfo': 'Kursi: ${b.seatNumber}',
+          if (isPaid) 'action': 'Lihat Tiket',
+          if (isPaid) 'isTicket': true,
+        });
+      }
+
+      if (dynamicItems.isNotEmpty && mounted) {
+        setState(() {
+          _allNotifications
+            ..removeWhere((n) => n['isDynamic'] == true)
+            ..insertAll(
+              0,
+              dynamicItems.map((e) => {...e, 'isDynamic': true}),
+            );
+          final txCount = _allNotifications.where((n) => n['type'] == 'transaksi').length;
+          final tripCount = _allNotifications.where((n) => n['type'] == 'perjalanan').length;
+          _filters = [
+            'Semua (${_allNotifications.length})',
+            'Transaksi ($txCount)',
+            'Perjalanan ($tripCount)',
+            'Info Sistem (0)',
+          ];
+        });
+      }
+    } catch (_) {}
+  }
 
   final List<Map<String, dynamic>> _allNotifications = [
     {

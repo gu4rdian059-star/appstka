@@ -31,6 +31,9 @@ class SupabaseStorageService {
   static const String bucketTrainAssets = 'train-assets';
   static const String bucketTicketsQr = 'tickets-qr';
 
+  static final Set<String> _verifiedQrFiles = <String>{};
+  static bool _qrUploadBlockedByRls = false;
+
   // ===========================================================================
   // 1. TICKET QR STORAGE (Bucket: tickets-qr)
   // ===========================================================================
@@ -188,18 +191,15 @@ class SupabaseStorageService {
     required String bookingId,
     required Uint8List pngBytes,
   }) async {
+    if (_qrUploadBlockedByRls) return null;
     final client = SupabaseService.client;
-    final fileName = '$bookingId.png';
+    final safeId = bookingId.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '');
+    final fileName = '$safeId.png';
 
     try {
-      // Pastikan ada auth session terverifikasi sebelum upload
       try {
         await AuthService.ensureSupabaseAuthSession();
       } catch (_) {}
-
-      debugPrint(
-        '📤 Mengunggah QR boarding pass ke Supabase Storage ($bucketTicketsQr/$fileName)...',
-      );
 
       await client.storage.from(bucketTicketsQr).uploadBinary(
         fileName,
@@ -210,18 +210,19 @@ class SupabaseStorageService {
         ),
       );
 
+      _verifiedQrFiles.add(fileName);
       final publicUrl = client.storage.from(bucketTicketsQr).getPublicUrl(fileName);
       debugPrint('✅ QR Boarding Pass berhasil diunggah ke Supabase Storage: $publicUrl');
       return publicUrl;
     } on StorageException catch (se) {
+      _qrUploadBlockedByRls = true;
       debugPrint(
-        'ℹ️ [Supabase Storage RLS Notice] Bucket "$bucketTicketsQr" memerlukan izin RLS INSERT: ${se.message}',
+        'ℹ️ [Supabase Storage RLS Notice] Bucket "$bucketTicketsQr" memakai render QR in-memory lokal (${se.message})',
       );
-      // Tetap kembalikan public URL deterministik agar UI tiket tidak error
-      return client.storage.from(bucketTicketsQr).getPublicUrl(fileName);
+      return null;
     } catch (e) {
-      debugPrint('⚠️ Gagal unggah QR ke Supabase Storage: $e');
-      return client.storage.from(bucketTicketsQr).getPublicUrl(fileName);
+      debugPrint('ℹ️ Render QR memakai generator kanvas lokal: $e');
+      return null;
     }
   }
 
@@ -240,22 +241,27 @@ class SupabaseStorageService {
     String? trainName,
     String? seatNumber,
   }) async {
+    if (_qrUploadBlockedByRls) return null;
     try {
       final client = SupabaseService.client;
-      final fileName = '$bookingId.png';
+      final safeId = bookingId.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '');
+      final fileName = '$safeId.png';
 
-      // Cek apakah file sudah pernah diunggah
+      if (_verifiedQrFiles.contains(fileName)) {
+        return client.storage.from(bucketTicketsQr).getPublicUrl(fileName);
+      }
+
       try {
         final files = await client.storage.from(bucketTicketsQr).list(
           searchOptions: SearchOptions(search: fileName),
         );
         final exists = files.any((f) => f.name == fileName);
         if (exists) {
+          _verifiedQrFiles.add(fileName);
           return client.storage.from(bucketTicketsQr).getPublicUrl(fileName);
         }
       } catch (_) {}
 
-      // Jika belum ada, buat QR PNG dan unggah
       final pngBytes = await generateTicketQrPng(
         bookingId: bookingId,
         pnr: pnr,

@@ -5,7 +5,6 @@ import '../orders/refund_screen.dart';
 import '../orders/order_detail_screen.dart';
 import '../intercity/antar_kota_screen.dart';
 import '../services/user_db_service.dart';
-import '../services/supabase_storage_service.dart';
 
 class MyTicketsScreen extends StatefulWidget {
   final bool embedded;
@@ -41,8 +40,18 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadTickets() async {
-    final list = await UserDatabaseService.getBookings();
+  Future<void> _loadTickets({bool forceRefresh = false}) async {
+    final cached = UserDatabaseService.getCachedBookings();
+    if (cached.isNotEmpty && _allBookings.isEmpty && mounted) {
+      setState(() {
+        _allBookings = List.from(cached);
+        _isLoading = false;
+      });
+    }
+
+    final list = await UserDatabaseService.getBookings(
+      forceRefresh: forceRefresh,
+    );
     if (mounted) {
       setState(() {
         _allBookings = List.from(list);
@@ -294,6 +303,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             Image.asset(
               'assets/images/logo_tka_full.png',
               height: 24,
+              cacheWidth: 120,
               fit: BoxFit.contain,
               errorBuilder: (_, _, _) => const Text(
                 'TKA',
@@ -304,12 +314,16 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            const Text(
-              'Tiket Saya',
-              style: TextStyle(
-                fontSize: 16.5,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF062056),
+            const Expanded(
+              child: Text(
+                'Tiket Saya',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF062056),
+                ),
               ),
             ),
           ],
@@ -828,93 +842,112 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
 
                       // Rute & Jam
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                ticket.departureTime,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF062056),
-                                ),
-                              ),
-                              Text(
-                                '${ticket.originName} (${ticket.originCode})',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                ticket.travelDate,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Column(
-                            children: [
-                              const Text(
-                                'Langsung',
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  color: Color(0xFF10B981),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 14,
-                                    height: 1.5,
-                                    color: Colors.grey.shade300,
-                                  ),
-                                  const Icon(
-                                    Icons.arrow_forward_rounded,
-                                    size: 14,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  ticket.departureTime,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w900,
                                     color: Color(0xFF062056),
                                   ),
-                                  Container(
-                                    width: 14,
-                                    height: 1.5,
-                                    color: Colors.grey.shade300,
+                                ),
+                                Text(
+                                  '${ticket.originName} (${ticket.originCode})',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                ],
-                              ),
-                            ],
+                                ),
+                                Text(
+                                  ticket.travelDate,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                ticket.arrivalTime,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF062056),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Column(
+                              children: [
+                                const Text(
+                                  'Langsung',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    color: Color(0xFF10B981),
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                '${ticket.destName} (${ticket.destCode})',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.bold,
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 12,
+                                      height: 1.5,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    const Icon(
+                                      Icons.arrow_forward_rounded,
+                                      size: 14,
+                                      color: Color(0xFF062056),
+                                    ),
+                                    Container(
+                                      width: 12,
+                                      height: 1.5,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              Text(
-                                ticket.travelDate,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey,
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  ticket.arrivalTime,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF062056),
+                                  ),
                                 ),
-                              ),
-                            ],
+                                Text(
+                                  '${ticket.destName} (${ticket.destCode})',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  ticket.travelDate,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -1026,38 +1059,30 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                                 ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(14),
-                                  child: Image.network(
-                                    ticket.qrCodeUrl ??
-                                        SupabaseStorageService.getTicketQrUrl(
-                                          ticket.bookingId,
-                                        ),
-                                    width: 150,
-                                    height: 150,
-                                    fit: BoxFit.contain,
-                                    loadingBuilder: (ctx, child, progress) {
-                                      if (progress == null) return child;
-                                      return const Center(
-                                        child: SizedBox(
-                                          width: 28,
-                                          height: 28,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
+                                  child: (ticket.qrCodeUrl != null &&
+                                          ticket.qrCodeUrl!.isNotEmpty)
+                                      ? Image.network(
+                                          ticket.qrCodeUrl!,
+                                          width: 150,
+                                          height: 150,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (_, _, _) => const Icon(
+                                            Icons.qr_code_2_rounded,
+                                            size: 132,
                                             color: Color(0xFF062056),
                                           ),
-                                        ),
-                                      );
-                                    },
-                                    errorBuilder: (_, _, _) => Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        const Icon(
-                                          Icons.qr_code_2_rounded,
-                                          size: 132,
-                                          color: Color(0xFF062056),
-                                        ),
-                                        Container(
-                                          width: 24,
-                                          height: 24,
+                                        )
+                                      : Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            const Icon(
+                                              Icons.qr_code_2_rounded,
+                                              size: 132,
+                                              color: Color(0xFF062056),
+                                            ),
+                                            Container(
+                                              width: 24,
+                                              height: 24,
                                           decoration: const BoxDecoration(
                                             color: Colors.white,
                                             shape: BoxShape.circle,
@@ -1072,8 +1097,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 10),
+                                const SizedBox(height: 10),
                               const Text(
                                 'Tunjukkan QR Code ini di boarding gate stasiun',
                                 style: TextStyle(

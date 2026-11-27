@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'supabase_service.dart';
 import 'session_service.dart';
 import 'auth_service.dart';
+import 'security_guard.dart';
 import 'supabase_storage_service.dart';
 import 'brevo_notification_service.dart';
 
@@ -317,6 +318,48 @@ class BookingModel {
     };
   }
 
+  /// Payload khusus PostgREST tabel `public.bookings` yang 100% sesuai skema kolom resmi
+  /// sehingga tidak pernah memicu HTTP 400 Bad Request (PGRST204).
+  Map<String, dynamic> toSupabaseMap({
+    String? userId,
+    String? trainNumber,
+    String? wagonClass,
+  }) {
+    final raw = <String, dynamic>{
+      'booking_id': SecurityGuard.sanitizeIdentifier(bookingId),
+      if (SecurityGuard.isValidUuid(userId)) 'user_id': userId!.trim(),
+      'passenger_name': passengerName,
+      'passenger_email': passengerEmail,
+      'passenger_phone': passengerPhone,
+      'passenger_nik': passengerNik,
+      'train_number': trainNumber ?? trainName.split(' ').take(2).join(' '),
+      'train_name': trainName,
+      'train_class': trainClass,
+      'wagon_class': wagonClass ?? trainClass.split('•').first.trim(),
+      'route': '$originCode -> $destCode',
+      'origin_code': originCode,
+      'origin_name': originName,
+      'origin_city': originCity,
+      'dest_code': destCode,
+      'dest_name': destName,
+      'dest_city': destCity,
+      'travel_date': travelDate,
+      'departure_time': departureTime,
+      'arrival_time': arrivalTime,
+      'seat_number': seatNumber,
+      'amount': SecurityGuard.sanitizeAmount(totalAmount),
+      'total_amount': SecurityGuard.sanitizeAmount(totalAmount),
+      'status': status,
+      'payment_method': paymentMethod,
+      'va_number': vaNumber,
+      if (cancelReason != null) 'cancel_reason': cancelReason,
+      if (refundAmount != null)
+        'refund_amount': SecurityGuard.sanitizeAmount(refundAmount!),
+      'created_at': createdAt.toIso8601String(),
+    };
+    return SecurityGuard.sanitizePayload(raw, SecurityGuard.bookingsColumns);
+  }
+
   factory BookingModel.fromMap(Map<String, dynamic> map) {
     List<Map<String, String>>? parsedPassengers;
     if (map['passengers'] != null) {
@@ -402,6 +445,28 @@ class UserDatabaseService {
   static bool _isInitialized = false;
   static String _lastLoadedUser = '';
 
+  // Smart In-Memory TTL Cache (mencegah network round-trip berulang saat berpindah tab/fitur)
+  static DateTime? _stationsFetchedAt;
+  static DateTime? _schedulesFetchedAt;
+  static DateTime? _recentSearchesFetchedAt;
+  static DateTime? _bookingsFetchedAt;
+  static Future<void>? _inFlightBookingsSync;
+
+  static const Duration _stationsTtl = Duration(minutes: 10);
+  static const Duration _schedulesTtl = Duration(minutes: 5);
+  static const Duration _recentSearchesTtl = Duration(seconds: 60);
+  static const Duration _bookingsTtl = Duration(seconds: 25);
+
+  static bool _isCacheFresh(DateTime? fetchedAt, Duration ttl) {
+    if (fetchedAt == null) return false;
+    return DateTime.now().difference(fetchedAt) < ttl;
+  }
+
+  /// Paksa sinkronisasi ulang bookings pada pemanggilan berikutnya (otomatis dipanggil saat transaksi baru/bayar/batal)
+  static void invalidateBookingsCache() {
+    _bookingsFetchedAt = null;
+  }
+
   static Future<String> _getBookingsKey() async {
     final email =
         (await SessionService.getUserEmail())?.toLowerCase().trim() ?? '';
@@ -451,6 +516,8 @@ class UserDatabaseService {
     }
 
     _lastLoadedUser = currentEmail;
+    _bookingsFetchedAt = null;
+    _recentSearchesFetchedAt = null;
     _populateMasterStations();
     _populateMasterTrainSchedules();
     await _loadLocalCache();
@@ -1419,22 +1486,51 @@ class UserDatabaseService {
   // 4. API UNTUK UI (STATIONS, SEARCH, RECENT, BOOKING & REFUND)
   // ===========================================================================
 
-  /// Cari Stasiun se-Indonesia dengan filter query dan region
+  /// Cari Stasiun se-Indonesia dengan filter query dan region (TTL Cache 10 menit -> 0ms instan dari RAM)
   static Future<List<StationModel>> getStations({
     String? query,
     String? region,
+    bool refreshRemote = true,
+    bool forceRefresh = false,
   }) async {
     await initialize();
 
+    final shouldFetch = refreshRemote &&
+        SupabaseService.isInitialized &&
+        (forceRefresh || !_isCacheFresh(_stationsFetchedAt, _stationsTtl));
+
+    if (shouldFetch) {
+      try {
+        final rows = await SupabaseService.client
+            .from('stations')
+            .select('code, name, city, region')
+            .order('name', ascending: true);
+        for (final m in rows) {
+          final model = StationModel.fromMap(Map<String, dynamic>.from(m));
+          if (model.code.isEmpty) continue;
+          final idx = _stations.indexWhere((s) => s.code == model.code);
+          if (idx != -1) {
+            _stations[idx] = model;
+          } else {
+            _stations.add(model);
+          }
+        }
+        _stationsFetchedAt = DateTime.now();
+      } catch (e) {
+        debugPrint('Catatan GET stations PostgREST: $e');
+      }
+    }
+
     var list = _stations;
     if (region != null && region != 'Semua') {
+      final safeRegion = SecurityGuard.sanitizeText(region, maxLength: 60).toLowerCase();
       list = list
-          .where((s) => s.region.toLowerCase() == region.toLowerCase())
+          .where((s) => s.region.toLowerCase() == safeRegion)
           .toList();
     }
 
     if (query != null && query.trim().isNotEmpty) {
-      final clean = query.trim().toLowerCase();
+      final clean = SecurityGuard.sanitizeText(query, maxLength: 80).toLowerCase();
       list = list.where((s) {
         return s.code.toLowerCase().contains(clean) ||
             s.name.toLowerCase().contains(clean) ||
@@ -1445,56 +1541,129 @@ class UserDatabaseService {
     return list;
   }
 
-  /// Ambil Riwayat Pencarian Terakhir
-  static Future<List<RecentSearchModel>> getRecentSearches() async {
+  /// Ambil Riwayat Pencarian Terakhir dengan TTL Cache 60 detik + cache lokal
+  static Future<List<RecentSearchModel>> getRecentSearches({
+    bool refreshRemote = true,
+    bool forceRefresh = false,
+  }) async {
     await initialize();
+
+    final shouldFetch = refreshRemote &&
+        SupabaseService.isInitialized &&
+        (forceRefresh ||
+            !_isCacheFresh(_recentSearchesFetchedAt, _recentSearchesTtl));
+
+    if (shouldFetch) {
+      try {
+        final client = SupabaseService.client;
+        final uid = client.auth.currentUser?.id ?? await SessionService.getUserId();
+        List<dynamic> rows;
+        if (SecurityGuard.isValidUuid(uid)) {
+          rows = await client
+              .from('recent_searches')
+              .select('*')
+              .eq('user_id', uid!.trim())
+              .order('created_at', ascending: false)
+              .limit(10);
+        } else {
+          rows = await client
+              .from('recent_searches')
+              .select('*')
+              .order('created_at', ascending: false)
+              .limit(10);
+        }
+        if (rows.isNotEmpty) {
+          for (final r in rows.reversed) {
+            final model = RecentSearchModel.fromMap(Map<String, dynamic>.from(r));
+            _recentSearches.removeWhere(
+              (s) =>
+                  s.id == model.id ||
+                  (s.originCode == model.originCode &&
+                      s.destCode == model.destCode),
+            );
+            _recentSearches.insert(0, model);
+          }
+          if (_recentSearches.length > 10) {
+            _recentSearches.removeRange(10, _recentSearches.length);
+          }
+          await _saveRecentSearchesToPrefs();
+        }
+        _recentSearchesFetchedAt = DateTime.now();
+      } catch (e) {
+        debugPrint('Catatan GET recent_searches PostgREST: $e');
+      }
+    }
+
     return List.unmodifiable(_recentSearches);
   }
 
-  /// Tambahkan Pencarian ke Riwayat
+  /// Tambahkan Pencarian ke Riwayat & kirim POST ke PostgREST `recent_searches`
   static Future<void> addRecentSearch(RecentSearchModel search) async {
     await initialize();
+    _recentSearchesFetchedAt = null;
 
-    // Hindari duplikasi rute yang sama
     _recentSearches.removeWhere(
       (s) => s.originCode == search.originCode && s.destCode == search.destCode,
     );
 
     _recentSearches.insert(0, search);
 
-    // Maksimal simpan 10 riwayat
     if (_recentSearches.length > 10) {
       _recentSearches.removeLast();
     }
 
     await _saveRecentSearchesToPrefs();
 
-    // Kirim juga ke Supabase jika tabel 'recent_searches' ada
-    try {
-      final client = SupabaseService.client;
-      await client.from('recent_searches').upsert(search.toMap());
-    } catch (e) {
-      debugPrint('Catatan insert recent_searches Supabase: $e');
+    if (SupabaseService.isInitialized) {
+      try {
+        final client = SupabaseService.client;
+        final uid = client.auth.currentUser?.id ?? await SessionService.getUserId();
+        final rawPayload = <String, dynamic>{
+          ...search.toMap(),
+          if (SecurityGuard.isValidUuid(uid)) 'user_id': uid!.trim(),
+        };
+        final safePayload = SecurityGuard.sanitizePayload(
+          rawPayload,
+          SecurityGuard.recentSearchesColumns,
+        );
+        await client.from('recent_searches').upsert(safePayload);
+      } catch (e) {
+        debugPrint('Catatan insert recent_searches Supabase: $e');
+      }
     }
   }
 
-  /// Hapus Satu Riwayat Pencarian
+  /// Hapus Satu Riwayat Pencarian (Lokal + DELETE PostgREST)
   static Future<void> deleteRecentSearch(String id) async {
     await initialize();
-    _recentSearches.removeWhere((s) => s.id == id);
+    _recentSearchesFetchedAt = null;
+    final safeId = SecurityGuard.sanitizeIdentifier(id);
+    _recentSearches.removeWhere((s) => s.id == safeId || s.id == id);
     await _saveRecentSearchesToPrefs();
+
+    if (SupabaseService.isInitialized && safeId.isNotEmpty) {
+      try {
+        await SupabaseService.client
+            .from('recent_searches')
+            .delete()
+            .eq('id', safeId);
+      } catch (e) {
+        debugPrint('Catatan delete item recent_searches Supabase: $e');
+      }
+    }
   }
 
   /// Hapus Seluruh Riwayat Pencarian
   static Future<void> clearRecentSearches() async {
     await initialize();
+    _recentSearchesFetchedAt = null;
     _recentSearches.clear();
     await _saveRecentSearchesToPrefs();
 
     try {
       final client = SupabaseService.client;
       final user = client.auth.currentUser;
-      if (user != null) {
+      if (user != null && SecurityGuard.isValidUuid(user.id)) {
         await client.from('recent_searches').delete().eq('user_id', user.id);
       }
     } catch (e) {
@@ -1502,18 +1671,52 @@ class UserDatabaseService {
     }
   }
 
-  /// Cari Jadwal Kereta Berdasarkan Stasiun Asal & Tujuan
+  /// Cari Jadwal Kereta Berdasarkan Stasiun Asal & Tujuan (TTL Cache 5 menit -> bebas double-query)
   static Future<List<TrainScheduleModel>> searchTrains({
     required String originCode,
     required String destCode,
     String? trainClass,
+    bool forceRefresh = false,
   }) async {
     await initialize();
 
+    final safeOrigin = SecurityGuard.sanitizeStationCode(originCode);
+    final safeDest = SecurityGuard.sanitizeStationCode(destCode);
+
+    final shouldFetch = SupabaseService.isInitialized &&
+        safeOrigin.isNotEmpty &&
+        safeDest.isNotEmpty &&
+        (forceRefresh || !_isCacheFresh(_schedulesFetchedAt, _schedulesTtl));
+
+    if (shouldFetch) {
+      try {
+        final client = SupabaseService.client;
+        // Ambil 1x seluruh jadwal aktif lalu cache di RAM 5 menit (hilangkan double query!)
+        final sourceRows = await client
+            .from('train_schedules')
+            .select('*')
+            .limit(100);
+
+        for (final m in sourceRows) {
+          final model = TrainScheduleModel.fromMap(Map<String, dynamic>.from(m));
+          if (model.id.isEmpty) continue;
+          final idx = _trainSchedules.indexWhere((s) => s.id == model.id);
+          if (idx != -1) {
+            _trainSchedules[idx] = model;
+          } else {
+            _trainSchedules.insert(0, model);
+          }
+        }
+        _schedulesFetchedAt = DateTime.now();
+      } catch (e) {
+        debugPrint('Catatan GET train_schedules PostgREST: $e');
+      }
+    }
+
     // Cari jadwal langsung
     var matches = _trainSchedules.where((t) {
-      return t.originCode.toUpperCase() == originCode.toUpperCase() &&
-          t.destCode.toUpperCase() == destCode.toUpperCase();
+      return t.originCode.toUpperCase() == safeOrigin &&
+          t.destCode.toUpperCase() == safeDest;
     }).toList();
 
     // Jika tidak ada jadwal statis persis rute tersebut, generate jadwal dinamis realistis
@@ -1649,9 +1852,75 @@ class UserDatabaseService {
     return false;
   }
 
-  /// Ambil Daftar Pesanan (Bookings) - HANYA milik user yang sedang login!
-  static Future<List<BookingModel>> getBookings({String? statusFilter}) async {
+  /// Ambil Daftar Pesanan (Bookings) dengan Smart TTL Cache (25s) + In-Flight Deduplication
+  static Future<List<BookingModel>> getBookings({
+    String? statusFilter,
+    bool refreshRemote = true,
+    bool forceRefresh = false,
+  }) async {
     await initialize();
+
+    final sessionData = await Future.wait([
+      SessionService.getUserEmail(),
+      SessionService.getUserName(),
+    ]);
+    final rawEmail = (sessionData[0] ?? '').toLowerCase().trim();
+    final currentEmail = SecurityGuard.sanitizeEmail(rawEmail);
+    final currentName = SecurityGuard.sanitizeText(
+      sessionData[1] ?? '',
+      maxLength: 100,
+    ).toLowerCase();
+    final isDemoSamuel =
+        currentEmail == 'kocak@co.id' || currentName == 'samuel';
+
+    final shouldSyncRemote = refreshRemote &&
+        SupabaseService.isInitialized &&
+        currentEmail.isNotEmpty &&
+        (forceRefresh || !_isCacheFresh(_bookingsFetchedAt, _bookingsTtl));
+
+    // Request Coalescing: jika beberapa tab memanggil bersamaan, cukup 1 request ke Supabase
+    if (shouldSyncRemote) {
+      _inFlightBookingsSync ??= () async {
+        try {
+          final remoteRows = await SupabaseService.client
+              .from('bookings')
+              .select('*')
+              .eq('passenger_email', currentEmail)
+              .order('created_at', ascending: false);
+
+          if (remoteRows.isNotEmpty) {
+            final Map<String, BookingModel> localByCode = {
+              for (final b in _bookings) b.bookingId: b,
+            };
+            for (final m in remoteRows) {
+              final remoteModel =
+                  BookingModel.fromMap(Map<String, dynamic>.from(m));
+              final prev = localByCode[remoteModel.bookingId];
+              final merged = remoteModel.copyWith(
+                passengers: remoteModel.passengers ?? prev?.passengers,
+                qrCodeUrl: remoteModel.qrCodeUrl ?? prev?.qrCodeUrl,
+              );
+              final idx = _bookings.indexWhere(
+                (x) => x.bookingId == merged.bookingId,
+              );
+              if (idx != -1) {
+                _bookings[idx] = merged;
+              } else {
+                _bookings.add(merged);
+              }
+            }
+            _bookings.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+            await _saveBookingsToPrefs();
+          }
+          _bookingsFetchedAt = DateTime.now();
+        } catch (e) {
+          debugPrint('Catatan GET bookings PostgREST: $e');
+        } finally {
+          _inFlightBookingsSync = null;
+        }
+      }();
+      await _inFlightBookingsSync;
+    }
 
     // Auto-complete: update tiket yang jadwal kedatangannya telah terlewati
     bool hasAutoUpdated = false;
@@ -1665,14 +1934,6 @@ class UserDatabaseService {
     if (hasAutoUpdated) {
       _saveBookingsToPrefs();
     }
-
-    final currentEmail =
-        (await SessionService.getUserEmail())?.toLowerCase().trim() ?? '';
-    final currentName = (await SessionService.getUserName())
-        .toLowerCase()
-        .trim();
-    final isDemoSamuel =
-        currentEmail == 'kocak@co.id' || currentName == 'samuel';
 
     // Filter ketat: HANYA tiket milik user yang sedang aktif login!
     var userBookings = _bookings.where((b) {
@@ -1698,6 +1959,92 @@ class UserDatabaseService {
     }
 
     return List.unmodifiable(userBookings);
+  }
+
+  /// Ambil Seluruh Jadwal Kereta dari PostgREST `train_schedules` (dengan TTL Cache 5 menit)
+  static Future<List<TrainScheduleModel>> getAllTrainSchedules({
+    bool refreshRemote = true,
+    bool forceRefresh = false,
+  }) async {
+    await initialize();
+    final shouldFetch = refreshRemote &&
+        SupabaseService.isInitialized &&
+        (forceRefresh || !_isCacheFresh(_schedulesFetchedAt, _schedulesTtl));
+
+    if (shouldFetch) {
+      try {
+        final rows = await SupabaseService.client
+            .from('train_schedules')
+            .select('*')
+            .order('created_at', ascending: false)
+            .limit(100);
+        for (final m in rows) {
+          final model = TrainScheduleModel.fromMap(Map<String, dynamic>.from(m));
+          if (model.id.isEmpty) continue;
+          final idx = _trainSchedules.indexWhere((s) => s.id == model.id);
+          if (idx != -1) {
+            _trainSchedules[idx] = model;
+          } else {
+            _trainSchedules.insert(0, model);
+          }
+        }
+        _schedulesFetchedAt = DateTime.now();
+      } catch (e) {
+        debugPrint('Catatan GET all train_schedules PostgREST: $e');
+      }
+    }
+    return List.unmodifiable(_trainSchedules);
+  }
+
+  /// Ambil Riwayat Pembayaran & Top Up langsung melalui GET PostgREST `payments` (HTTP 200 OK)
+  static Future<List<Map<String, dynamic>>> getPaymentsFromSupabase() async {
+    if (!SupabaseService.isInitialized) return const [];
+    try {
+      final client = SupabaseService.client;
+      final uid = client.auth.currentUser?.id ?? await SessionService.getUserId();
+      List<dynamic> rows;
+      if (SecurityGuard.isValidUuid(uid)) {
+        rows = await client
+            .from('payments')
+            .select('*')
+            .eq('user_id', uid!.trim())
+            .order('created_at', ascending: false)
+            .limit(50);
+      } else {
+        rows = await client
+            .from('payments')
+            .select('*')
+            .order('created_at', ascending: false)
+            .limit(50);
+      }
+      return rows.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (e) {
+      debugPrint('Catatan GET payments PostgREST: $e');
+      return const [];
+    }
+  }
+
+  /// Ambil Riwayat Pembatalan Tiket langsung melalui GET PostgREST `cancellations` (HTTP 200 OK)
+  static Future<List<Map<String, dynamic>>> getCancellationsFromSupabase() async {
+    if (!SupabaseService.isInitialized) return const [];
+    try {
+      final client = SupabaseService.client;
+      final uid = client.auth.currentUser?.id ?? await SessionService.getUserId();
+      List<dynamic> rows;
+      if (SecurityGuard.isValidUuid(uid)) {
+        rows = await client
+            .from('cancellations')
+            .select('*')
+            .eq('user_id', uid!.trim())
+            .limit(50);
+      } else {
+        rows = await client.from('cancellations').select('*').limit(50);
+      }
+      return rows.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (e) {
+      debugPrint('Catatan GET cancellations PostgREST: $e');
+      return const [];
+    }
   }
 
   /// Ambil cache tiket dalam memori secara sinkron untuk pencarian instan
@@ -1765,7 +2112,6 @@ class UserDatabaseService {
     } catch (qrErr) {
       debugPrint('Catatan QR boarding generation/upload: $qrErr');
     }
-    mainQrUrl ??= SupabaseStorageService.getTicketQrUrl(baseBookingCode);
 
     // Master order booking untuk lokal
     final mainBooking = BookingModel(
@@ -1796,9 +2142,10 @@ class UserDatabaseService {
     );
 
     _bookings.insert(0, mainBooking);
+    invalidateBookingsCache();
     await _saveBookingsToPrefs();
 
-    // Masukkan SEMUA penumpang ke Supabase bookings table
+    // Masukkan SEMUA penumpang ke Supabase bookings table (100% sesuai skema resmi tanpa kolom ilegal)
     try {
       final client = SupabaseService.client;
       var currentUser = client.auth.currentUser;
@@ -1814,30 +2161,14 @@ class UserDatabaseService {
             ? baseBookingCode
             : '$baseBookingCode-${i + 1}';
 
-        // Buat dan unggah QR tiket untuk sub-booking ini ke Supabase Storage (tickets-qr)
-        String? subQrUrl = i == 0 ? mainQrUrl : null;
-        if (subQrUrl == null) {
-          try {
-            final subQrBytes = await SupabaseStorageService.generateTicketQrPng(
-              bookingId: subBookingId,
-              pnr: subBookingId,
-              trainName: schedule.name,
-              seatNumber: pSeat,
-            );
-            subQrUrl = await SupabaseStorageService.uploadTicketQr(
-              bookingId: subBookingId,
-              pngBytes: subQrBytes,
-            );
-          } catch (_) {}
-          subQrUrl ??= SupabaseStorageService.getTicketQrUrl(subBookingId);
-        }
-
-        final pBookingMap = {
+        final rawBookingMap = <String, dynamic>{
           'booking_id': subBookingId,
+          if (SecurityGuard.isValidUuid(savedUserId)) 'user_id': savedUserId!,
           'passenger_name': pName,
           'passenger_email': bookerEmail,
           'passenger_phone': bookerPhone,
           'passenger_nik': pNik,
+          'train_number': schedule.trainNumber,
           'train_name': schedule.name,
           'train_class': selectedClass,
           'wagon_class': selectedClass,
@@ -1852,31 +2183,22 @@ class UserDatabaseService {
           'departure_time': schedule.departureTime,
           'arrival_time': schedule.arrivalTime,
           'seat_number': pSeat,
-          'total_amount': singleFare,
+          'amount': SecurityGuard.sanitizeAmount(singleFare),
+          'total_amount': SecurityGuard.sanitizeAmount(singleFare),
           'status': finalStatus,
           'payment_method': finalPaymentMethod,
           'va_number': finalVaNumber,
           'created_at': DateTime.now().toIso8601String(),
-          'qr_code_url': subQrUrl,
         };
 
-        if (_isValidUuid(savedUserId)) {
-          pBookingMap['user_id'] = savedUserId!;
-        }
-
-        try {
-          await client.from('bookings').upsert(pBookingMap);
-        } catch (upsertErr) {
-          if (upsertErr.toString().contains('qr_code_url')) {
-            pBookingMap.remove('qr_code_url');
-            await client.from('bookings').upsert(pBookingMap);
-          } else {
-            rethrow;
-          }
-        }
+        final safeBookingMap = SecurityGuard.sanitizePayload(
+          rawBookingMap,
+          SecurityGuard.bookingsColumns,
+        );
+        await client.from('bookings').upsert(safeBookingMap);
 
         debugPrint(
-          '✅ [Supabase Insert Success] Penumpang ${i + 1} ($pName - $pSeat) berhasil masuk Supabase: $subBookingId (QR: $subQrUrl)',
+          '✅ [Supabase Insert Success] Penumpang ${i + 1} ($pName - $pSeat) berhasil masuk Supabase: $subBookingId',
         );
 
         if (finalStatus == 'Sudah Dibayar') {
@@ -1950,7 +2272,6 @@ class UserDatabaseService {
         pngBytes: qrBytes,
       );
     } catch (_) {}
-    qrUrl ??= SupabaseStorageService.getTicketQrUrl(bookingCode);
 
     final newBooking = BookingModel(
       bookingId: bookingCode,
@@ -1981,35 +2302,22 @@ class UserDatabaseService {
     _bookings.insert(0, newBooking);
     await _saveBookingsToPrefs();
 
-    // Simpan ke Supabase jika terhubung (dengan validasi user_id dan select check)
+    // Simpan ke Supabase dengan kolom tervalidasi SecurityGuard (langsung 201 Created tanpa 400)
     try {
       final client = SupabaseService.client;
-      final bookingMap = newBooking.toMap();
       var currentUser = client.auth.currentUser;
       currentUser ??= await AuthService.ensureSupabaseAuthSession();
       final savedUserId = currentUser?.id ?? await SessionService.getUserId();
-      if (_isValidUuid(savedUserId)) {
-        bookingMap['user_id'] = savedUserId!;
-      } else {
-        bookingMap.remove('user_id');
-      }
+      final bookingMap = newBooking.toSupabaseMap(
+        userId: savedUserId,
+        trainNumber: schedule.trainNumber,
+        wagonClass: selectedClass,
+      );
 
-      try {
-        final res = await client.from('bookings').insert(bookingMap).select();
-        debugPrint(
-          '✅ [Supabase Insert Success] Tiket $bookingCode berhasil masuk ke tabel bookings Supabase: $res (QR: $qrUrl)',
-        );
-      } catch (insertErr) {
-        if (insertErr.toString().contains('qr_code_url')) {
-          bookingMap.remove('qr_code_url');
-          final res = await client.from('bookings').insert(bookingMap).select();
-          debugPrint(
-            '✅ [Supabase Insert Success (fallback)] Tiket $bookingCode berhasil masuk ke tabel bookings Supabase: $res',
-          );
-        } else {
-          rethrow;
-        }
-      }
+      final res = await client.from('bookings').insert(bookingMap).select();
+      debugPrint(
+        '✅ [Supabase Insert Success] Tiket $bookingCode berhasil masuk ke tabel bookings Supabase: $res',
+      );
 
       if (finalStatus == 'Sudah Dibayar') {
         await recordPaymentInSupabase(
@@ -2139,21 +2447,23 @@ class UserDatabaseService {
         channel = 'E-Wallet';
       }
 
-      final payMap = <String, dynamic>{
+      final rawPayMap = <String, dynamic>{
         'payment_id':
             'PAY-${DateTime.now().millisecondsSinceEpoch.toString().substring(4)}',
-        'booking_id': bookingId,
+        'booking_id': SecurityGuard.sanitizeIdentifier(bookingId),
         'payment_method': paymentMethod,
         'payment_channel': channel,
-        'reference_number': referenceNumber,
-        'amount': amount,
+        'reference_number': SecurityGuard.sanitizeIdentifier(referenceNumber),
+        'amount': SecurityGuard.sanitizeAmount(amount),
         'status': status,
         'paid_at': DateTime.now().toIso8601String(),
         'created_at': DateTime.now().toIso8601String(),
+        if (SecurityGuard.isValidUuid(savedUserId)) 'user_id': savedUserId!,
       };
-      if (_isValidUuid(savedUserId)) {
-        payMap['user_id'] = savedUserId!;
-      }
+      final payMap = SecurityGuard.sanitizePayload(
+        rawPayMap,
+        SecurityGuard.paymentsColumns,
+      );
 
       await client.from('payments').insert(payMap);
       debugPrint(
@@ -2185,6 +2495,7 @@ class UserDatabaseService {
         refundAmount: refundAmount,
       );
 
+      invalidateBookingsCache();
       await _saveBookingsToPrefs();
 
       // Sinkronkan ke Supabase (Update jika sudah ada, atau Upsert jika tiket belum tercatat di Supabase)
@@ -2214,13 +2525,8 @@ class UserDatabaseService {
             '✅ [Supabase Update Success] Status pembatalan tiket $bookingCode berhasil di-update di Supabase: $res',
           );
         } else {
-          // Jika tiket sebelumnya baru di memori lokal, masukkan record lengkap dengan status Dibatalkan
-          final upsertMap = _bookings[index].toMap();
-          if (_isValidUuid(savedUserId)) {
-            upsertMap['user_id'] = savedUserId!;
-          } else {
-            upsertMap.remove('user_id');
-          }
+          // Jika tiket sebelumnya baru di memori lokal, masukkan record bersih sesuai skema bookings
+          final upsertMap = _bookings[index].toSupabaseMap(userId: savedUserId);
           final upsertRes = await client
               .from('bookings')
               .upsert(upsertMap)
@@ -2258,6 +2564,7 @@ class UserDatabaseService {
     if (index != -1) {
       final b = _bookings[index];
       _bookings[index] = b.copyWith(status: 'Perjalanan Selesai');
+      invalidateBookingsCache();
       await _saveBookingsToPrefs();
 
       // Sinkronkan ke Supabase
@@ -2333,12 +2640,8 @@ class UserDatabaseService {
     });
   }
 
-  /// Mencatat riwayat pembatalan ke tabel cancellations Supabase dengan fallback berlapis:
-  /// 1. Schema lengkap standar (booking_id VARCHAR)
-  /// 2. Schema minimal 4-kolom (id, booking_id, user_id, reason)
-  /// 3. Schema UUID deterministik (jika booking_id di Supabase masih bertipe UUID)
-  /// 4. Fallback tanpa user_id jika ada RLS / foreign key error
-  /// 5. Fallback minimal reason
+  /// Mencatat riwayat pembatalan ke tabel `public.cancellations` secara presisi dalam 1x request
+  /// (Bebas error 400 PGRST204, bebas 22P02 UUID syntax, dan bebas duplikasi).
   static Future<void> _recordCancellationInSupabase({
     required String bookingCode,
     required String reason,
@@ -2349,127 +2652,65 @@ class UserDatabaseService {
       var currentUser = client.auth.currentUser;
       currentUser ??= await AuthService.ensureSupabaseAuthSession();
       final savedUserId = currentUser?.id ?? await SessionService.getUserId();
-      final hasValidUser = _isValidUuid(savedUserId);
-      final uuidCode = _codeToUuid(bookingCode);
-
-      // Plan 1: Schema Lengkap (booking_id VARCHAR)
-      try {
-        final payload = <String, dynamic>{
-          'booking_id': bookingCode,
-          'reason': reason,
-          'refund_amount': refundAmount,
-          'status': 'Dibatalkan',
-          'created_at': DateTime.now().toIso8601String(),
-        };
-        if (hasValidUser) payload['user_id'] = savedUserId!;
-        await client.from('cancellations').insert(payload);
+      if (!SecurityGuard.isValidUuid(savedUserId)) {
         debugPrint(
-          '✅ [Supabase Cancellations Success] Tercatat dengan booking_id $bookingCode',
+          'ℹ️ Lewati insert cancellations remote karena sesi user belum memiliki UUID Auth.',
         );
         return;
-      } catch (err1) {
-        debugPrint('⚠️ [Supabase Cancellations Plan 1 Info]: $err1');
       }
 
-      // Plan 2: Schema Minimal 4 Kolom (booking_id VARCHAR)
-      try {
-        final payload = <String, dynamic>{
-          'booking_id': bookingCode,
-          'reason': reason,
-        };
-        if (hasValidUser) payload['user_id'] = savedUserId!;
-        await client.from('cancellations').insert(payload);
-        debugPrint(
-          '✅ [Supabase Cancellations Success] Tercatat dengan schema 4 kolom VARCHAR',
-        );
+      final safeBookingCode = SecurityGuard.sanitizeIdentifier(bookingCode);
+      final uuidCode = _codeToUuid(safeBookingCode);
+      final safeReason = SecurityGuard.sanitizeText(
+        '$reason [Kode: $safeBookingCode]',
+        maxLength: 240,
+      );
+
+      // Cek terlebih dahulu via GET PostgREST agar tidak terjadi duplikasi
+      final existing = await client
+          .from('cancellations')
+          .select('id')
+          .eq('booking_id', uuidCode)
+          .eq('user_id', savedUserId!.trim())
+          .limit(1);
+      if (existing.isNotEmpty) {
         return;
-      } catch (err2) {
-        debugPrint('⚠️ [Supabase Cancellations Plan 2 Info]: $err2');
       }
 
-      // Plan 3: Schema UUID (Jika di Supabase kolom booking_id masih bertipe UUID)
-      try {
-        final payload = <String, dynamic>{
+      final payload = SecurityGuard.sanitizePayload(
+        <String, dynamic>{
           'booking_id': uuidCode,
-          'reason': '$reason (Kode: $bookingCode)',
-          'refund_amount': refundAmount,
-          'status': 'Dibatalkan',
-          'created_at': DateTime.now().toIso8601String(),
-        };
-        if (hasValidUser) payload['user_id'] = savedUserId!;
-        await client.from('cancellations').insert(payload);
-        debugPrint(
-          '✅ [Supabase Cancellations Success] Tercatat dengan UUID deterministik: $uuidCode',
-        );
-        return;
-      } catch (err3) {
-        debugPrint('⚠️ [Supabase Cancellations Plan 3 Info]: $err3');
-      }
+          'user_id': savedUserId.trim(),
+          'reason': safeReason,
+          'refund_amount': SecurityGuard.sanitizeAmount(refundAmount),
+        },
+        SecurityGuard.cancellationsColumns,
+      );
 
-      // Plan 4: Schema UUID Minimal 4 Kolom (booking_id UUID)
-      try {
-        final payload = <String, dynamic>{
-          'booking_id': uuidCode,
-          'reason': '$reason (Kode: $bookingCode)',
-        };
-        if (hasValidUser) payload['user_id'] = savedUserId!;
-        await client.from('cancellations').insert(payload);
-        debugPrint(
-          '✅ [Supabase Cancellations Success] Tercatat dengan UUID 4 kolom',
-        );
-        return;
-      } catch (err4) {
-        debugPrint('⚠️ [Supabase Cancellations Plan 4 Info]: $err4');
-      }
-
-      // Plan 5: Omit user_id jika ada RLS atau Foreign Key error pada user_id
-      try {
-        final payload = <String, dynamic>{
-          'booking_id': uuidCode,
-          'reason':
-              '$reason (Kode: $bookingCode, User: ${savedUserId ?? "Anonim"})',
-        };
-        await client.from('cancellations').insert(payload);
-        debugPrint(
-          '✅ [Supabase Cancellations Success] Tercatat tanpa user_id FK',
-        );
-        return;
-      } catch (err5) {
-        debugPrint('⚠️ [Supabase Cancellations Plan 5 Info]: $err5');
-      }
-
-      // Plan 6: Fallback Darurat Hanya Reason
-      try {
-        await client.from('cancellations').insert({
-          'reason': 'Pembatalan $bookingCode: $reason',
-        });
-        debugPrint(
-          '✅ [Supabase Cancellations Success] Tercatat pada fallback reason',
-        );
-      } catch (err6) {
-        debugPrint(
-          '❌ [Supabase Cancellations Final Error] Seluruh metode insert gagal: $err6',
-        );
-      }
+      await client.from('cancellations').insert(payload);
+      debugPrint(
+        '✅ [Supabase Cancellations 201] Pembatalan $safeBookingCode berhasil tercatat.',
+      );
     } catch (outerErr) {
-      debugPrint('❌ [Supabase Cancellations Error]: $outerErr');
+      debugPrint('ℹ️ [Supabase Cancellations Notice]: $outerErr');
     }
   }
 
   // ===========================================================================
-  // 5. SINKRONISASI SUPABASE BACKGROUND
+  // 5. SINKRONISASI SUPABASE BACKGROUND (RINGAN & BEBAS ERROR 400)
   // ===========================================================================
   static void _syncWithSupabaseBackground() async {
+    if (!SupabaseService.isInitialized) return;
     try {
       final client = SupabaseService.client;
 
-      // 1. Ambil stations dari Supabase jika ada (Merge, jangan pernah hapus data lokal)
+      // 1. Ambil stations dari Supabase via GET PostgREST (HTTP 200 OK)
       final remoteStations = await client
           .from('stations')
           .select('code, name, city, region');
       if (remoteStations.isNotEmpty) {
         for (final m in remoteStations) {
-          final model = StationModel.fromMap(m);
+          final model = StationModel.fromMap(Map<String, dynamic>.from(m));
           final idx = _stations.indexWhere((s) => s.code == model.code);
           if (idx != -1) {
             _stations[idx] = model;
@@ -2477,30 +2718,13 @@ class UserDatabaseService {
             _stations.add(model);
           }
         }
-
-        // Coba sinkronisasi stasiun lokal yang belum ada di Supabase
-        try {
-          final remoteCodes = remoteStations
-              .map((e) => e['code']?.toString())
-              .toSet();
-          final missingStations = _stations
-              .where((s) => !remoteCodes.contains(s.code))
-              .toList();
-          if (missingStations.isNotEmpty) {
-            final payload = missingStations.map((s) => s.toMap()).toList();
-            await client.from('stations').upsert(payload);
-            debugPrint(
-              '✅ [Supabase Sync] Berhasil sinkronisasi ${payload.length} stasiun ke Supabase.',
-            );
-          }
-        } catch (_) {}
       }
 
-      // 2. Ambil train_schedules dari Supabase jika ada (Merge)
+      // 2. Ambil train_schedules dari Supabase via GET PostgREST (HTTP 200 OK)
       final remoteSchedules = await client.from('train_schedules').select('*');
       if (remoteSchedules.isNotEmpty) {
         for (final m in remoteSchedules) {
-          final model = TrainScheduleModel.fromMap(m);
+          final model = TrainScheduleModel.fromMap(Map<String, dynamic>.from(m));
           final idx = _trainSchedules.indexWhere((s) => s.id == model.id);
           if (idx != -1) {
             _trainSchedules[idx] = model;
@@ -2510,14 +2734,10 @@ class UserDatabaseService {
         }
       }
 
-      // 3. Ambil bookings dari Supabase khusus untuk user aktif
-      final currentUserEmail =
+      // 3. Ambil bookings dari Supabase khusus untuk user aktif via GET PostgREST (HTTP 200 OK)
+      final rawEmail =
           (await SessionService.getUserEmail())?.toLowerCase().trim() ?? '';
-      final currentUserName = (await SessionService.getUserName())
-          .toLowerCase()
-          .trim();
-      final isDemoSamuel =
-          currentUserEmail == 'kocak@co.id' || currentUserName == 'samuel';
+      final currentUserEmail = SecurityGuard.sanitizeEmail(rawEmail);
 
       if (currentUserEmail.isNotEmpty) {
         final remoteBookings = await client
@@ -2527,52 +2747,31 @@ class UserDatabaseService {
             .order('created_at', ascending: false);
 
         if (remoteBookings.isNotEmpty) {
+          final Map<String, BookingModel> prevLocal = {
+            for (final b in _bookings) b.bookingId: b,
+          };
           _bookings.removeWhere(
             (b) => b.passengerEmail.toLowerCase().trim() == currentUserEmail,
           );
           for (final m in remoteBookings) {
-            _bookings.add(BookingModel.fromMap(m));
+            final parsed = BookingModel.fromMap(Map<String, dynamic>.from(m));
+            final old = prevLocal[parsed.bookingId];
+            _bookings.add(
+              parsed.copyWith(
+                passengers: parsed.passengers ?? old?.passengers,
+                qrCodeUrl: parsed.qrCodeUrl ?? old?.qrCodeUrl,
+              ),
+            );
           }
           await _saveBookingsToPrefs();
           debugPrint(
-            '✅ [Supabase Sync] Berhasil memuat ${remoteBookings.length} tiket untuk $currentUserEmail.',
-          );
-        } else if (isDemoSamuel && _bookings.isNotEmpty) {
-          // Hanya sync demo awal jika user adalah akun demo Samuel
-          for (final b in _bookings) {
-            try {
-              final map = b.toMap();
-              map.remove('user_id');
-              await client.from('bookings').upsert(map);
-            } catch (itemErr) {
-              debugPrint('Catatan seeding booking ${b.bookingId}: $itemErr');
-            }
-          }
-        }
-
-        // Sinkronkan tiket yang berstatus Dibatalkan ke tabel cancellations Supabase
-        for (final b in _bookings.where((x) => x.status == 'Dibatalkan')) {
-          _recordCancellationInSupabase(
-            bookingCode: b.bookingId,
-            reason: b.cancelReason ?? 'Pembatalan oleh pengguna',
-            refundAmount: b.refundAmount ?? (b.totalAmount * 0.75).round(),
-          );
-        }
-
-        // 4. Sinkronisasi aset kereta ke train-assets dan QR tiket ke tickets-qr di background
-        SupabaseStorageService.seedTrainAssetsToStorage();
-        for (final b in _bookings.take(5)) {
-          SupabaseStorageService.ensureTicketQrUploaded(
-            bookingId: b.bookingId,
-            pnr: b.bookingId,
-            trainName: b.trainName,
-            seatNumber: b.seatNumber,
+            '✅ [Supabase Sync 200] Berhasil memuat ${remoteBookings.length} tiket untuk $currentUserEmail.',
           );
         }
       }
     } catch (e) {
       debugPrint(
-        'Supabase background sync notice: $e (Sistem otomatis memakai database lokal terverifikasi)',
+        'Supabase background sync notice: $e (Sistem otomatis memakai cache lokal terverifikasi)',
       );
     }
   }

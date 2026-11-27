@@ -64,8 +64,10 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   static const String _lyrTrainsLabel = 'tka-trains-label';
 
   MapLibreMapController? _mapController;
+  bool _mapReadyToMount = false;
   bool _styleLoaded = false;
   bool _layersAdded = false;
+  Timer? _mountMapTimer;
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -88,11 +90,18 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     TrainTrackingService.tripsNotifier.addListener(_onDataUpdated);
     TrainTrackingService.stationsNotifier.addListener(_onDataUpdated);
     widget.focusRequestNotifier?.addListener(_onExternalFocusRequest);
+    _mountMapTimer = Timer(const Duration(milliseconds: 80), () {
+      if (mounted) {
+        setState(() => _mapReadyToMount = true);
+      }
+    });
     _initializeData();
   }
 
   @override
   void dispose() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _mountMapTimer?.cancel();
     TrainTrackingService.tripsNotifier.removeListener(_onDataUpdated);
     TrainTrackingService.stationsNotifier.removeListener(_onDataUpdated);
     widget.focusRequestNotifier?.removeListener(_onExternalFocusRequest);
@@ -160,7 +169,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   void _onDataUpdated() {
     if (!mounted) return;
     setState(() {});
-    _syncGeoJsonToMap();
+    // Hanya update posisi kereta & rute terpilih (tanpa upload ulang rute statis & stasiun)
+    _syncGeoJsonToMap(updateStaticSources: false);
 
     // Auto-follow selected train ketika koordinatnya berubah
     if (_autoFollowSelected && _selectedTripId != null) {
@@ -168,7 +178,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       if (trip != null && trip.hasValidPosition) {
         _mapController?.animateCamera(
           CameraUpdate.newLatLng(LatLng(trip.currentLat!, trip.currentLng!)),
-          duration: const Duration(milliseconds: 700),
+          duration: const Duration(milliseconds: 450),
         );
       }
     }
@@ -220,18 +230,21 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     if (ctrl == null || !_styleLoaded || _layersAdded) return;
 
     try {
-      await ctrl.addGeoJsonSource(_srcRoutes, _emptyFeatureCollection());
-      await ctrl.addGeoJsonSource(_srcSelectedRoute, _emptyFeatureCollection());
-      await ctrl.addGeoJsonSource(
-        _srcStations,
-        _emptyFeatureCollection(),
-        promoteId: 'id',
-      );
-      await ctrl.addGeoJsonSource(
-        _srcTrains,
-        _emptyFeatureCollection(),
-        promoteId: 'id',
-      );
+      // Tambahkan semua 4 GeoJSON source secara PARALEL untuk startup peta lebih cepat
+      await Future.wait([
+        ctrl.addGeoJsonSource(_srcRoutes, _emptyFeatureCollection()),
+        ctrl.addGeoJsonSource(_srcSelectedRoute, _emptyFeatureCollection()),
+        ctrl.addGeoJsonSource(
+          _srcStations,
+          _emptyFeatureCollection(),
+          promoteId: 'id',
+        ),
+        ctrl.addGeoJsonSource(
+          _srcTrains,
+          _emptyFeatureCollection(),
+          promoteId: 'id',
+        ),
+      ]);
 
       // 1. Jalur rel semua kereta (casing putih + garis warna status)
       await ctrl.addLineLayer(
@@ -401,32 +414,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     }
   }
 
-  Future<void> _syncGeoJsonToMap() async {
+  Future<void> _syncGeoJsonToMap({bool updateStaticSources = true}) async {
     final ctrl = _mapController;
     if (ctrl == null || !_styleLoaded || !_layersAdded) return;
 
     final trips = _filteredTrips;
-    final stations = _filteredStations;
     final selectedTrip = _findSelectedTrip();
-
-    // GeoJSON Routes
-    final routeFeatures = <Map<String, dynamic>>[];
-    for (final trip in trips) {
-      if (trip.routeGeometry.length < 2) continue;
-      routeFeatures.add({
-        'type': 'Feature',
-        'id': 'route-${trip.id}',
-        'geometry': {
-          'type': 'LineString',
-          'coordinates':
-              trip.routeGeometry.map((p) => p.toLngLatJson()).toList(),
-        },
-        'properties': {
-          'id': trip.id,
-          'status': trip.dataStatus.code,
-        },
-      });
-    }
 
     // GeoJSON Selected Route
     final selectedRouteFeatures = <Map<String, dynamic>>[];
@@ -442,23 +435,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         'properties': {'id': selectedTrip.id},
       });
     }
-
-    // GeoJSON Stations
-    final stationFeatures = stations.map((s) {
-      return {
-        'type': 'Feature',
-        'id': s.code,
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [s.longitude, s.latitude],
-        },
-        'properties': {
-          'id': s.code,
-          'code': s.code,
-          'name': s.name,
-        },
-      };
-    }).toList();
 
     // GeoJSON Trains (hanya yang memiliki koordinat valid; UNAVAILABLE tetap dapat dipilih dari daftar)
     final trainFeatures = <Map<String, dynamic>>[];
@@ -484,23 +460,70 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       });
     }
 
-    try {
-      await ctrl.setGeoJsonSource(_srcRoutes, {
-        'type': 'FeatureCollection',
-        'features': routeFeatures,
-      });
-      await ctrl.setGeoJsonSource(_srcSelectedRoute, {
+    final tasks = <Future<void>>[
+      ctrl.setGeoJsonSource(_srcSelectedRoute, {
         'type': 'FeatureCollection',
         'features': selectedRouteFeatures,
-      });
-      await ctrl.setGeoJsonSource(_srcStations, {
-        'type': 'FeatureCollection',
-        'features': stationFeatures,
-      });
-      await ctrl.setGeoJsonSource(_srcTrains, {
+      }),
+      ctrl.setGeoJsonSource(_srcTrains, {
         'type': 'FeatureCollection',
         'features': trainFeatures,
-      });
+      }),
+    ];
+
+    // Hanya bangun & kirim GeoJSON statis (rute & stasiun) saat filter/data awal berubah!
+    if (updateStaticSources) {
+      final stations = _filteredStations;
+      final routeFeatures = <Map<String, dynamic>>[];
+      for (final trip in trips) {
+        if (trip.routeGeometry.length < 2) continue;
+        routeFeatures.add({
+          'type': 'Feature',
+          'id': 'route-${trip.id}',
+          'geometry': {
+            'type': 'LineString',
+            'coordinates':
+                trip.routeGeometry.map((p) => p.toLngLatJson()).toList(),
+          },
+          'properties': {
+            'id': trip.id,
+            'status': trip.dataStatus.code,
+          },
+        });
+      }
+
+      final stationFeatures = stations.map((s) {
+        return {
+          'type': 'Feature',
+          'id': s.code,
+          'geometry': {
+            'type': 'Point',
+            'coordinates': [s.longitude, s.latitude],
+          },
+          'properties': {
+            'id': s.code,
+            'code': s.code,
+            'name': s.name,
+          },
+        };
+      }).toList();
+
+      tasks.add(
+        ctrl.setGeoJsonSource(_srcRoutes, {
+          'type': 'FeatureCollection',
+          'features': routeFeatures,
+        }),
+      );
+      tasks.add(
+        ctrl.setGeoJsonSource(_srcStations, {
+          'type': 'FeatureCollection',
+          'features': stationFeatures,
+        }),
+      );
+    }
+
+    try {
+      await Future.wait(tasks);
     } catch (e) {
       debugPrint('⚠️ Catatan update GeoJSON MapLibre: $e');
     }
@@ -1214,27 +1237,51 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       );
     }
 
-    return MapLibreMap(
-      styleString: AppEnv.mapTilerStyleUrl,
-      initialCameraPosition: const CameraPosition(
-        target: _indonesiaCenter,
-        zoom: _indonesiaZoom,
+    if (!_mapReadyToMount) {
+      return Container(
+        color: const Color(0xFFE2E8F0),
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.2,
+            color: Color(0xFF062056),
+          ),
+        ),
+      );
+    }
+
+    return RepaintBoundary(
+      child: MapLibreMap(
+        key: const ValueKey('live_map_main_canvas'),
+        styleString: AppEnv.mapTilerStyleUrl,
+        initialCameraPosition: const CameraPosition(
+          target: _indonesiaCenter,
+          zoom: _indonesiaZoom,
+        ),
+        cameraTargetBounds: CameraTargetBounds(
+          LatLngBounds(
+            southwest: const LatLng(-11.2, 94.8),
+            northeast: const LatLng(6.3, 141.2),
+          ),
+        ),
+        minMaxZoomPreference: const MinMaxZoomPreference(4.8, 16.0),
+        onMapCreated: _onMapCreated,
+        onStyleLoadedCallback: _onStyleLoaded,
+        onMapClick: (_, _) {
+          if (_selectedTripId != null) {
+            setState(() => _selectedTripId = null);
+            _syncGeoJsonToMap(updateStaticSources: false);
+          }
+        },
+        compassEnabled: false,
+        rotateGesturesEnabled: false,
+        scrollGesturesEnabled: true,
+        zoomGesturesEnabled: true,
+        tiltGesturesEnabled: false,
+        trackCameraPosition: false,
       ),
-      minMaxZoomPreference: const MinMaxZoomPreference(4.0, 17.5),
-      onMapCreated: _onMapCreated,
-      onStyleLoadedCallback: _onStyleLoaded,
-      onMapClick: (_, _) {
-        if (_selectedTripId != null) {
-          setState(() => _selectedTripId = null);
-          _syncGeoJsonToMap();
-        }
-      },
-      compassEnabled: true,
-      rotateGesturesEnabled: true,
-      scrollGesturesEnabled: true,
-      zoomGesturesEnabled: true,
-      tiltGesturesEnabled: true,
-      trackCameraPosition: true,
     );
   }
 

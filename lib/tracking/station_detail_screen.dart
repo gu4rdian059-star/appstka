@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,6 +37,8 @@ class _StationDetailScreenState extends State<StationDetailScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   MapLibreMapController? _miniMapController;
+  bool _mapReadyToMount = false;
+  Timer? _mountMapTimer;
 
   bool get _supportsMapLibre =>
       kIsWeb ||
@@ -46,10 +49,15 @@ class _StationDetailScreenState extends State<StationDetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _mountMapTimer = Timer(const Duration(milliseconds: 80), () {
+      if (mounted) setState(() => _mapReadyToMount = true);
+    });
   }
 
   @override
   void dispose() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _mountMapTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -162,17 +170,33 @@ class _StationDetailScreenState extends State<StationDetailScreen>
                   width: double.infinity,
                   child: Stack(
                     children: [
-                      if (_supportsMapLibre && AppEnv.hasMapTilerConfig)
-                        MapLibreMap(
-                          styleString: AppEnv.mapTilerStyleUrl,
-                          initialCameraPosition: CameraPosition(
-                            target: LatLng(station.latitude, station.longitude),
-                            zoom: 13.8,
+                      if (_supportsMapLibre &&
+                          AppEnv.hasMapTilerConfig &&
+                          _mapReadyToMount)
+                        RepaintBoundary(
+                          child: MapLibreMap(
+                            key: ValueKey('station_minimap_${station.code}'),
+                            styleString: AppEnv.mapTilerStyleUrl,
+                            initialCameraPosition: CameraPosition(
+                              target:
+                                  LatLng(station.latitude, station.longitude),
+                              zoom: 13.8,
+                            ),
+                            cameraTargetBounds: CameraTargetBounds(
+                              LatLngBounds(
+                                southwest: const LatLng(-11.2, 94.8),
+                                northeast: const LatLng(6.3, 141.2),
+                              ),
+                            ),
+                            minMaxZoomPreference:
+                                const MinMaxZoomPreference(5.0, 16.0),
+                            onMapCreated: (c) => _miniMapController = c,
+                            onStyleLoadedCallback: _onMiniMapStyleLoaded,
+                            compassEnabled: false,
+                            rotateGesturesEnabled: false,
+                            tiltGesturesEnabled: false,
+                            trackCameraPosition: false,
                           ),
-                          onMapCreated: (c) => _miniMapController = c,
-                          onStyleLoadedCallback: _onMiniMapStyleLoaded,
-                          compassEnabled: false,
-                          rotateGesturesEnabled: false,
                         )
                       else
                         Container(

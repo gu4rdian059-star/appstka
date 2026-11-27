@@ -24,84 +24,59 @@ class AppPageRoute<T> extends PageRouteBuilder<T> {
   AppPageRoute({
     required this.page,
     this.transitionType = AppPageTransitionType.slideRight,
-    this.customDuration = const Duration(milliseconds: 320),
+    this.customDuration = const Duration(milliseconds: 180),
     super.settings,
   }) : super(
           pageBuilder: (context, animation, secondaryAnimation) => page,
           transitionDuration: customDuration,
-          reverseTransitionDuration: const Duration(milliseconds: 260),
+          reverseTransitionDuration: const Duration(milliseconds: 150),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            // Kurva akselerasi modern (Cubic)
+            // Kurva akselerasi ringan & responsif (bebas ScaleTransition re-rasterize)
             final curvedAnimation = CurvedAnimation(
               parent: animation,
-              curve: Curves.fastEaseInToSlowEaseOut,
+              curve: Curves.easeOutCubic,
               reverseCurve: Curves.easeInCubic,
             );
 
             switch (transitionType) {
               case AppPageTransitionType.slideRight:
-                // Geser dari kanan dengan sedikit scaling dan fade
                 final slideAnim = Tween<Offset>(
-                  begin: const Offset(1.0, 0.0),
+                  begin: const Offset(0.28, 0.0),
                   end: Offset.zero,
-                ).animate(curvedAnimation);
-
-                final fadeAnim = Tween<double>(
-                  begin: 0.15,
-                  end: 1.0,
                 ).animate(curvedAnimation);
 
                 return SlideTransition(
                   position: slideAnim,
                   child: FadeTransition(
-                    opacity: fadeAnim,
+                    opacity: curvedAnimation,
                     child: child,
                   ),
                 );
 
               case AppPageTransitionType.slideUp:
-                // Geser elegan dari bawah dengan subtle scale dan fade
                 final slideAnim = Tween<Offset>(
-                  begin: const Offset(0.0, 0.12),
+                  begin: const Offset(0.0, 0.08),
                   end: Offset.zero,
-                ).animate(curvedAnimation);
-
-                final scaleAnim = Tween<double>(
-                  begin: 0.96,
-                  end: 1.0,
-                ).animate(curvedAnimation);
-
-                final fadeAnim = Tween<double>(
-                  begin: 0.0,
-                  end: 1.0,
                 ).animate(curvedAnimation);
 
                 return SlideTransition(
                   position: slideAnim,
-                  child: ScaleTransition(
-                    scale: scaleAnim,
-                    child: FadeTransition(
-                      opacity: fadeAnim,
-                      child: child,
-                    ),
+                  child: FadeTransition(
+                    opacity: curvedAnimation,
+                    child: child,
                   ),
                 );
 
               case AppPageTransitionType.zoom:
                 final scaleAnim = Tween<double>(
-                  begin: 0.90,
-                  end: 1.0,
-                ).animate(curvedAnimation);
-
-                final fadeAnim = Tween<double>(
-                  begin: 0.0,
+                  begin: 0.95,
                   end: 1.0,
                 ).animate(curvedAnimation);
 
                 return ScaleTransition(
                   scale: scaleAnim,
                   child: FadeTransition(
-                    opacity: fadeAnim,
+                    opacity: curvedAnimation,
                     child: child,
                   ),
                 );
@@ -137,13 +112,13 @@ class AppPageRoute<T> extends PageRouteBuilder<T> {
     );
   }
 
-  /// Navigasi untuk menu layanan (Antar Kota, Lokal, dll.) dengan slide up halus
+  /// Navigasi untuk menu layanan (Antar Kota, Lokal, dll.) dengan slide up gesit
   static Future<T?> pushMenu<T>(BuildContext context, Widget page) {
     return Navigator.of(context).push<T>(
       AppPageRoute<T>(
         page: page,
         transitionType: AppPageTransitionType.slideUp,
-        customDuration: const Duration(milliseconds: 350),
+        customDuration: const Duration(milliseconds: 190),
       ),
     );
   }

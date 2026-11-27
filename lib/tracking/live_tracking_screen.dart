@@ -122,13 +122,14 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   };
 
   MapLibreMapController? _mapController;
+  bool _mapReadyToMount = false;
   bool _mapStyleLoaded = false;
   bool _mapLoadError = false;
   String? _mapErrorMessage;
-  bool _autoFollow = true;
+  bool _autoFollow = false;
 
-  Timer? _clockTimer;
   Timer? _movementTimer;
+  Timer? _mountMapTimer;
   IndonesiaTimezone _timezone = IndonesiaTimeService.currentTimezone.value;
 
   // Progress perjalanan kereta di sepanjang rute (0.0 -> 1.0)
@@ -184,32 +185,55 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   @override
   void initState() {
     super.initState();
+    // Langsung bangun rute awal dari widget props / cache agar layar tidak kosong di frame 0
+    _rebuildRouteStations();
     _initTicketAndRoute();
 
-    // Update jam real-time Indonesia setiap detik
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+    // Tunda mount MapLibre WebGL hingga animasi transisi halaman selesai (~180ms)
+    // agar klik tombol Live Tracking terasa instan & bebas lag!
+    _mountMapTimer = Timer(const Duration(milliseconds: 180), () {
+      if (mounted) {
+        setState(() => _mapReadyToMount = true);
+      }
     });
 
-    // Pergerakan halus posisi kereta di sepanjang rute tiket
-    _movementTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    // Pergerakan posisi kereta setiap 5 detik (hemat CPU/GPU & hanya update layer dinamis)
+    _movementTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || _stations.length < 2) return;
       setState(() {
-        _trainProgress += 0.004;
+        _trainProgress += 0.006;
         if (_trainProgress > 0.96) _trainProgress = 0.14;
         _currentSpeed = 96 + (DateTime.now().second % 19);
         _refreshStationStopStatuses();
       });
-      _syncMapGeoJson(followCamera: _autoFollow);
+      _syncMapGeoJson(
+        updateStaticSources: false,
+        followCamera: _autoFollow,
+      );
     });
   }
 
   Future<void> _initTicketAndRoute() async {
+    // Tampilkan data dari cache memori terlebih dahulu secara instan (0ms)
+    final cached = UserDatabaseService.getCachedBookings()
+        .where((b) => b.status == 'Sudah Dibayar')
+        .toList();
+    if (cached.isNotEmpty) {
+      _applyLoadedBookings(cached);
+    }
+
     final bookings = await UserDatabaseService.getBookings(
       statusFilter: 'Sudah Dibayar',
     );
     if (!mounted) return;
+    _applyLoadedBookings(bookings);
 
+    if (_mapStyleLoaded) {
+      await _syncMapGeoJson(updateStaticSources: true, fitRouteBounds: true);
+    }
+  }
+
+  void _applyLoadedBookings(List<BookingModel> bookings) {
     setState(() {
       _activeTickets = bookings;
       if (widget.booking != null) {
@@ -227,10 +251,6 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       _isLoadingTickets = false;
       _rebuildRouteStations();
     });
-
-    if (_mapStyleLoaded) {
-      await _syncMapGeoJson(fitRouteBounds: true);
-    }
   }
 
   void _selectBookedTicket(BookingModel booking) {
@@ -560,8 +580,10 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
 
   @override
   void dispose() {
-    _clockTimer?.cancel();
+    FocusManager.instance.primaryFocus?.unfocus();
+    _mountMapTimer?.cancel();
     _movementTimer?.cancel();
+    _mapController?.onFeatureTapped.remove(_onFeatureTapped);
     super.dispose();
   }
 
@@ -579,11 +601,18 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     if (controller == null) return;
 
     try {
-      // 1. Source & Layer untuk jalur rute penuh (abu-biru + garis utama biru)
-      await controller.addGeoJsonSource(
-        _routeSourceId,
-        _buildFullRouteGeoJson(),
-      );
+      // Tambahkan semua 4 GeoJSON source secara PARALEL (lebih cepat ~3x di WebGL/Native bridge)
+      await Future.wait([
+        controller.addGeoJsonSource(_routeSourceId, _buildFullRouteGeoJson()),
+        controller.addGeoJsonSource(
+          _passedRouteSourceId,
+          _buildPassedRouteGeoJson(),
+        ),
+        controller.addGeoJsonSource(_stationsSourceId, _buildStationsGeoJson()),
+        controller.addGeoJsonSource(_trainSourceId, _buildTrainGeoJson()),
+      ]);
+
+      // 1. Layer jalur rute penuh
       await controller.addLineLayer(
         _routeSourceId,
         _routeCasingLayerId,
@@ -594,6 +623,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
           lineCap: 'round',
           lineJoin: 'round',
         ),
+        enableInteraction: false,
       );
       await controller.addLineLayer(
         _routeSourceId,
@@ -605,13 +635,10 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
           lineCap: 'round',
           lineJoin: 'round',
         ),
+        enableInteraction: false,
       );
 
-      // 2. Source & Layer untuk segmen jalur yang sudah dilewati kereta (hijau)
-      await controller.addGeoJsonSource(
-        _passedRouteSourceId,
-        _buildPassedRouteGeoJson(),
-      );
+      // 2. Layer segmen jalur yang sudah dilewati kereta (hijau)
       await controller.addLineLayer(
         _passedRouteSourceId,
         _passedRouteLayerId,
@@ -622,13 +649,10 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
           lineCap: 'round',
           lineJoin: 'round',
         ),
+        enableInteraction: false,
       );
 
-      // 3. Source & Layer untuk stasiun pemberhentian di sepanjang rute
-      await controller.addGeoJsonSource(
-        _stationsSourceId,
-        _buildStationsGeoJson(),
-      );
+      // 3. Layer stasiun pemberhentian di sepanjang rute
       await controller.addCircleLayer(
         _stationsSourceId,
         _stationsCircleLayerId,
@@ -650,12 +674,11 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
           textHaloColor: '#FFFFFF',
           textHaloWidth: 1.8,
           textFont: ['Metropolis Semi Bold', 'Noto Sans Semi Bold'],
-          textAllowOverlap: true,
+          textOptional: true,
         ),
       );
 
-      // 4. Source & Layer untuk marker posisi kereta saat ini
-      await controller.addGeoJsonSource(_trainSourceId, _buildTrainGeoJson());
+      // 4. Layer marker posisi kereta saat ini
       await controller.addCircleLayer(
         _trainSourceId,
         _trainHaloLayerId,
@@ -710,6 +733,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   }
 
   Future<void> _syncMapGeoJson({
+    bool updateStaticSources = true,
     bool fitRouteBounds = false,
     bool followCamera = false,
   }) async {
@@ -717,25 +741,30 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     if (controller == null || !_mapStyleLoaded) return;
 
     try {
-      await controller.setGeoJsonSource(
-        _routeSourceId,
-        _buildFullRouteGeoJson(),
-      );
-      await controller.setGeoJsonSource(
-        _passedRouteSourceId,
-        _buildPassedRouteGeoJson(),
-      );
-      await controller.setGeoJsonSource(
-        _stationsSourceId,
-        _buildStationsGeoJson(),
-      );
-      await controller.setGeoJsonSource(_trainSourceId, _buildTrainGeoJson());
+      // Hanya perbarui source dinamis (kereta & jalur terlewati) saat tick berjalan;
+      // rute penuh & stasiun hanya di-upload ulang ketika rute/tiket berganti!
+      final tasks = <Future<void>>[
+        controller.setGeoJsonSource(
+          _passedRouteSourceId,
+          _buildPassedRouteGeoJson(),
+        ),
+        controller.setGeoJsonSource(_trainSourceId, _buildTrainGeoJson()),
+        if (updateStaticSources) ...[
+          controller.setGeoJsonSource(_routeSourceId, _buildFullRouteGeoJson()),
+          controller.setGeoJsonSource(
+            _stationsSourceId,
+            _buildStationsGeoJson(),
+          ),
+        ],
+      ];
+      await Future.wait(tasks);
 
       if (fitRouteBounds) {
         await _fitRouteBounds();
       } else if (followCamera) {
         await controller.animateCamera(
           CameraUpdate.newLatLng(_currentTrainLatLng),
+          duration: const Duration(milliseconds: 400),
         );
       }
     } catch (_) {}
@@ -1063,17 +1092,26 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                     color: Color(0xFFF26716),
                   ),
                   const SizedBox(width: 5),
-                  Text(
-                    IndonesiaTimeService.formatTime(
-                      DateTime.now(),
-                      withSeconds: true,
-                      zone: _timezone,
-                    ),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+                  // Jam terisolasi dalam StreamBuilder sehingga TIDAK memicu rebuild MapLibre tiap detik!
+                  StreamBuilder<DateTime>(
+                    stream: IndonesiaTimeService.clockStream(_timezone),
+                    initialData: IndonesiaTimeService.now(_timezone),
+                    builder: (_, snapshot) {
+                      final dt = snapshot.data ?? IndonesiaTimeService.now(_timezone);
+                      return Text(
+                        IndonesiaTimeService.formatWallClock(
+                          dt,
+                          withSeconds: true,
+                          zone: _timezone,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1125,21 +1163,46 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
         borderRadius: BorderRadius.circular(18.5),
         child: Stack(
           children: [
-            // 1. Peta MapLibre GL dengan Kredensial MapTiler dari .env
-            MapLibreMap(
-              styleString: AppEnv.mapTilerStyleUrl,
-              initialCameraPosition: CameraPosition(
-                target: initPos,
-                zoom: 7.4,
+            // 1. Peta MapLibre GL terisolasi RepaintBoundary & deferred mount setelah transisi
+            if (_mapReadyToMount)
+              RepaintBoundary(
+                child: MapLibreMap(
+                  key: const ValueKey('live_tracking_maplibre'),
+                  styleString: AppEnv.mapTilerStyleUrl,
+                  initialCameraPosition: CameraPosition(
+                    target: initPos,
+                    zoom: 7.4,
+                  ),
+                  cameraTargetBounds: CameraTargetBounds(
+                    LatLngBounds(
+                      southwest: const LatLng(-11.2, 94.8),
+                      northeast: const LatLng(6.3, 141.2),
+                    ),
+                  ),
+                  minMaxZoomPreference: const MinMaxZoomPreference(4.8, 16.0),
+                  onMapCreated: _onMapCreated,
+                  onStyleLoadedCallback: _onStyleLoaded,
+                  compassEnabled: false,
+                  rotateGesturesEnabled: false,
+                  scrollGesturesEnabled: true,
+                  zoomGesturesEnabled: true,
+                  tiltGesturesEnabled: false,
+                  trackCameraPosition: false,
+                ),
+              )
+            else
+              Container(
+                color: const Color(0xFFE2E8F0),
+                alignment: Alignment.center,
+                child: const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    color: Color(0xFF062056),
+                  ),
+                ),
               ),
-              onMapCreated: _onMapCreated,
-              onStyleLoadedCallback: _onStyleLoaded,
-              compassEnabled: true,
-              rotateGesturesEnabled: true,
-              scrollGesturesEnabled: true,
-              zoomGesturesEnabled: true,
-              tiltGesturesEnabled: true,
-            ),
 
             // 2. Pill Info Rute & Koordinat Kereta di Kiri Atas Peta
             Positioned(
@@ -1494,14 +1557,19 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Pilih Tiket Anda untuk Dilihat Rutenya:',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF062056),
+                    const Expanded(
+                      child: Text(
+                        'Pilih Tiket Anda untuk Dilihat Rutenya:',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF062056),
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       '${_activeTickets.length} Tiket Aktif',
                       style: const TextStyle(
@@ -1671,6 +1739,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                             ],
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 9,

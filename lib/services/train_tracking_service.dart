@@ -61,6 +61,10 @@ class TrainTrackingService {
   static RealtimeChannel? _tripsChannel;
   static Timer? _demoTimer;
   static final Map<String, double> _demoProgressByTripId = {};
+  static bool _optionalTrackingTablesChecked = false;
+  static bool _optionalTrackingTablesAvailable = false;
+  static DateTime? _lastTrackingLoadedAt;
+  static const Duration _trackingCacheTtl = Duration(seconds: 30);
 
   static const List<String> availableRegions = [
     'Semua Wilayah',
@@ -105,7 +109,23 @@ class TrainTrackingService {
   /// dengan opsi fallback data DEMO (selalu berstatus DEMO / non-real-time).
   static Future<TrackingSnapshot> loadTrackingData({
     bool allowDemoFallback = true,
+    bool forceRefresh = false,
   }) async {
+    // Kembalikan instan dari RAM jika data tracking sudah dimuat dalam 30 detik terakhir
+    if (!forceRefresh &&
+        _lastTrackingLoadedAt != null &&
+        DateTime.now().difference(_lastTrackingLoadedAt!) < _trackingCacheTtl &&
+        tripsNotifier.value.isNotEmpty &&
+        stationsNotifier.value.isNotEmpty) {
+      return TrackingSnapshot(
+        stations: stationsNotifier.value,
+        trips: tripsNotifier.value,
+        origin: dataOrigin.value,
+        notice: lastSyncNotice.value,
+        realtimeConnected: realtimeConnected.value,
+      );
+    }
+
     final defaultMap = {for (final s in _masterIndonesianStations) s.code: s};
     Map<String, TrackStationModel> stationByCode = Map.of(defaultMap);
     List<TrainTripModel> loadedTrips = [];
@@ -115,7 +135,7 @@ class TrainTrackingService {
     if (SupabaseService.isInitialized) {
       final client = SupabaseService.client;
 
-      // 1. Muat stasiun dari Supabase & perkaya koordinat bila kolom baru sudah ada
+      // 1. Muat stasiun dari Supabase (kolom yang dibutuhkan saja)
       try {
         final stationRows = await client.from('stations').select('*');
         for (final row in stationRows) {
@@ -149,57 +169,66 @@ class TrainTrackingService {
         debugPrint('Catatan query stations Supabase: $e');
       }
 
-      // 2. Muat train_trips & train_trip_stops dari Supabase Postgres
-      try {
-        final tripRows = await client
-            .from('train_trips')
-            .select('*')
-            .order('scheduled_departure', ascending: true);
-
-        Map<String, List<TrainStopModel>> stopsByTrip = {};
+      // 2. Muat train_trips & train_trip_stops dari Supabase Postgres bila tabel sudah dimigrasi
+      if (!_optionalTrackingTablesChecked || _optionalTrackingTablesAvailable) {
         try {
-          final stopRows = await client
-              .from('train_trip_stops')
+          final tripRows = await client
+              .from('train_trips')
               .select('*')
-              .order('stop_sequence', ascending: true);
-          for (final row in stopRows) {
-            final map = Map<String, dynamic>.from(row);
-            final code = (map['station_code'] ?? '').toString().toUpperCase();
-            final stop = TrainStopModel.fromMap(map, station: stationByCode[code]);
-            stopsByTrip.putIfAbsent(stop.tripId, () => []).add(stop);
-          }
-        } catch (stopErr) {
-          debugPrint('Catatan query train_trip_stops: $stopErr');
-        }
+              .order('scheduled_departure', ascending: true);
 
-        if (tripRows.isNotEmpty) {
-          loadedTrips = tripRows
-              .map((row) {
+          if (tripRows.isNotEmpty) {
+            _optionalTrackingTablesChecked = true;
+            _optionalTrackingTablesAvailable = true;
+            Map<String, List<TrainStopModel>> stopsByTrip = {};
+            try {
+              final stopRows = await client
+                  .from('train_trip_stops')
+                  .select('*')
+                  .order('stop_sequence', ascending: true);
+              for (final row in stopRows) {
                 final map = Map<String, dynamic>.from(row);
-                final id = (map['id'] ?? '').toString();
-                return TrainTripModel.fromMap(
-                  map,
-                  stationByCode: stationByCode,
-                  stops: stopsByTrip[id] ?? const [],
-                );
-              })
-              .toList();
-          origin = TrackingDataOrigin.supabaseRealtime;
-          _subscribeRealtime(stationByCode);
-        } else {
-          origin = TrackingDataOrigin.supabaseRealtime;
-          notice = 'Tabel train_trips di Supabase terhubung namun masih kosong.';
-          _subscribeRealtime(stationByCode);
+                final code = (map['station_code'] ?? '').toString().toUpperCase();
+                final stop = TrainStopModel.fromMap(map, station: stationByCode[code]);
+                stopsByTrip.putIfAbsent(stop.tripId, () => []).add(stop);
+              }
+            } catch (stopErr) {
+              debugPrint('Catatan query train_trip_stops: $stopErr');
+            }
+
+            loadedTrips = tripRows
+                .map((row) {
+                  final map = Map<String, dynamic>.from(row);
+                  final id = (map['id'] ?? '').toString();
+                  return TrainTripModel.fromMap(
+                    map,
+                    stationByCode: stationByCode,
+                    stops: stopsByTrip[id] ?? const [],
+                  );
+                })
+                .toList();
+            origin = TrackingDataOrigin.supabaseRealtime;
+            _subscribeRealtime(stationByCode);
+          } else {
+            _optionalTrackingTablesChecked = true;
+            _optionalTrackingTablesAvailable = false;
+            loadedTrips = _buildHonestDemoTrips(stationByCode);
+            origin = TrackingDataOrigin.localDemoFallback;
+          }
+        } catch (tripErr) {
+          _optionalTrackingTablesChecked = true;
+          _optionalTrackingTablesAvailable = false;
+          if (!allowDemoFallback) {
+            rethrow;
+          }
+          loadedTrips = _buildHonestDemoTrips(stationByCode);
+          origin = TrackingDataOrigin.localDemoFallback;
+          notice =
+              'Menampilkan rute dari PostgREST stations & train_schedules (jalankan supabase_master_fix_200.sql untuk tabel train_trips).';
         }
-      } catch (tripErr) {
-        debugPrint('Tabel train_trips belum tersedia di Supabase: $tripErr');
-        if (!allowDemoFallback) {
-          rethrow;
-        }
+      } else {
         loadedTrips = _buildHonestDemoTrips(stationByCode);
         origin = TrackingDataOrigin.localDemoFallback;
-        notice =
-            'Tabel tracking Supabase belum dimigrasi — menampilkan data Mode Demo/Simulasi (BUKAN data real-time). Jalankan supabase_live_tracking_migration.sql di Supabase SQL Editor untuk mengaktifkan Supabase Realtime.';
       }
     } else {
       if (!allowDemoFallback) {
@@ -234,6 +263,8 @@ class TrainTrackingService {
       loadFavorites(),
       loadPreferences(),
     ]);
+
+    _lastTrackingLoadedAt = DateTime.now();
 
     return TrackingSnapshot(
       stations: stationsList,
@@ -317,7 +348,8 @@ class TrainTrackingService {
 
     if (!enabled) return;
 
-    _demoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    // Interval 4 detik (50% lebih hemat CPU/GPU WebGL dibanding 2 detik)
+    _demoTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       _advanceDemoTrainsOneTick();
     });
   }
@@ -590,7 +622,7 @@ class TrainTrackingService {
     final userId = await _resolveUserId();
     final local = await _loadLocalFavorites(userId);
 
-    if (SupabaseService.isInitialized) {
+    if (SupabaseService.isInitialized && _optionalTrackingTablesAvailable) {
       try {
         final rows = await SupabaseService.client
             .from('user_favorites')
@@ -642,7 +674,7 @@ class TrainTrackingService {
       favoritesNotifier.value = list;
       await _saveLocalFavorites(userId, list);
 
-      if (SupabaseService.isInitialized) {
+      if (SupabaseService.isInitialized && _optionalTrackingTablesAvailable) {
         try {
           await SupabaseService.client
               .from('user_favorites')
@@ -672,7 +704,7 @@ class TrainTrackingService {
     favoritesNotifier.value = list;
     await _saveLocalFavorites(userId, list);
 
-    if (SupabaseService.isInitialized) {
+    if (SupabaseService.isInitialized && _optionalTrackingTablesAvailable) {
       try {
         await SupabaseService.client.from('user_favorites').upsert(
           {
@@ -708,7 +740,7 @@ class TrainTrackingService {
       await _saveLocalFavorites(userId, list);
     }
 
-    if (SupabaseService.isInitialized) {
+    if (SupabaseService.isInitialized && _optionalTrackingTablesAvailable) {
       try {
         await SupabaseService.client
             .from('user_favorites')
@@ -757,7 +789,7 @@ class TrainTrackingService {
     UserNotificationPreferences prefsModel =
         await _loadLocalPreferences(userId, email);
 
-    if (SupabaseService.isInitialized) {
+    if (SupabaseService.isInitialized && _optionalTrackingTablesAvailable) {
       try {
         final row = await SupabaseService.client
             .from('user_notification_preferences')
@@ -796,7 +828,7 @@ class TrainTrackingService {
       IndonesiaTimezone.fromCode(finalModel.preferredTimezone),
     );
 
-    if (SupabaseService.isInitialized) {
+    if (SupabaseService.isInitialized && _optionalTrackingTablesAvailable) {
       try {
         await SupabaseService.client
             .from('user_notification_preferences')

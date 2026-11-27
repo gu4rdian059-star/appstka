@@ -27,16 +27,64 @@ class _TopUpHistoryScreenState extends State<TopUpHistoryScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final bookings = await UserDatabaseService.getBookings();
+      // Ambil data transaksi lengkap via GET REST API PostgREST (bookings, payments, cancellations)
+      final results = await Future.wait([
+        UserDatabaseService.getBookings(refreshRemote: true),
+        UserDatabaseService.getPaymentsFromSupabase(),
+        UserDatabaseService.getCancellationsFromSupabase(),
+      ]);
+      final bookings = results[0] as List<BookingModel>;
+      final remotePayments = results[1] as List<Map<String, dynamic>>;
+      final remoteCancellations = results[2] as List<Map<String, dynamic>>;
 
       final List<Map<String, dynamic>> items = [];
+      final Set<String> seenRefs = <String>{};
 
-      // Masukkan riwayat pemesanan tiket
+      // 1. Masukkan transaksi Top Up & Pembayaran langsung dari tabel `payments` PostgREST
+      for (final p in remotePayments) {
+        final bid = (p['booking_id'] ?? '').toString();
+        final ref = (p['reference_number'] ?? p['payment_id'] ?? '').toString();
+        final isTopUp = bid.toUpperCase().contains('TOPUP') || ref.startsWith('TOP-');
+        if (isTopUp && seenRefs.add(ref)) {
+          items.add({
+            'id': p['payment_id']?.toString() ?? ref,
+            'type': 'topup',
+            'title': 'Top Up Saldo TKAPay',
+            'ref': ref,
+            'method': (p['payment_method'] ?? 'Virtual Account').toString(),
+            'amount': int.tryParse(p['amount']?.toString() ?? '0') ?? 0,
+            'status': (p['status'] ?? 'Berhasil').toString(),
+            'date': (p['paid_at'] ?? p['created_at'] ?? '').toString().split('T').first,
+            'rawDate': (p['created_at'] ?? DateTime.now().toIso8601String()).toString(),
+          });
+        }
+      }
+
+      // 2. Masukkan riwayat pengembalian dana dari tabel `cancellations` PostgREST bila belum tercatat
+      for (final c in remoteCancellations) {
+        final cid = 'CANC-${c['id'] ?? ''}';
+        final refundAmt = int.tryParse(c['refund_amount']?.toString() ?? '0') ?? 0;
+        if (refundAmt > 0 && seenRefs.add(cid)) {
+          items.add({
+            'id': cid,
+            'type': 'refund',
+            'title': 'Refund Pembatalan Tiket',
+            'ref': cid,
+            'method': 'Saldo TKAPay',
+            'amount': refundAmt,
+            'status': 'Berhasil',
+            'date': (c['reason'] ?? 'Pembatalan Tiket').toString(),
+            'rawDate': DateTime.now().toIso8601String(),
+          });
+        }
+      }
+
+      // 3. Masukkan riwayat pemesanan tiket dari tabel `bookings` PostgREST
       for (final b in bookings) {
         final isCancelled =
             b.status.toLowerCase().contains('batal') ||
             b.status.toLowerCase().contains('cancel');
-        if (isCancelled && (b.refundAmount ?? 0) > 0) {
+        if (isCancelled && (b.refundAmount ?? 0) > 0 && seenRefs.add('REF-${b.bookingId}')) {
           items.add({
             'id': 'REF-${b.bookingId}',
             'type': 'refund',

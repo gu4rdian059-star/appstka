@@ -105,6 +105,7 @@ class _Onboarding1State extends State<Onboarding1>
                         child: Image.asset(
                           _bgAsset,
                           fit: BoxFit.fill,
+                          cacheWidth: 960,
                           alignment: const Alignment(0, 0.20),
                         ),
                       ),
@@ -154,6 +155,7 @@ class _Onboarding1State extends State<Onboarding1>
                       child: Image.asset(
                         'assets/images/logo_tka_full.png',
                         height: 32,
+                        cacheWidth: 160,
                       ),
                     ),
                   ),

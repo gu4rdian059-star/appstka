@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' if (dart.library.html) 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/app_env.dart';
 import 'brevo_notification_service.dart';
+import 'security_guard.dart';
 import 'session_service.dart';
 import 'supabase_service.dart';
 
@@ -20,18 +23,27 @@ class AuthResult {
 class AuthService {
   static HttpServer? _desktopOAuthServer;
 
-  /// Registrasi akun baru (Penumpang) langsung ke Supabase Auth & Tabel Profiles
+  /// Registrasi akun baru (Penumpang) langsung ke Supabase Auth & Tabel Tunggal `public.users`
   static Future<AuthResult> registerPassenger({
     required String name,
     required String email,
     required String phone,
     required String password,
   }) async {
-    final cleanEmail = email.trim().toLowerCase();
-    final cleanName = name.trim();
-    final cleanPhone = phone.trim();
+    final cleanEmail = SecurityGuard.sanitizeEmail(email);
+    final cleanName = SecurityGuard.sanitizeText(name, maxLength: 120);
+    final cleanPhone = SecurityGuard.sanitizePhone(phone);
 
-    // Simpan akun ke database lokal terlebih dahulu agar user selalu dapat login
+    if (cleanEmail.isEmpty) {
+      return const AuthResult(
+        success: false,
+        message: 'Format alamat email tidak valid.',
+      );
+    }
+
+    await SupabaseService.initialize();
+
+    // Simpan akun ke cache sesi lokal sebagai cadangan
     await SessionService.saveRegisteredAccount(
       name: cleanName,
       email: cleanEmail,
@@ -55,25 +67,43 @@ class AuthService {
         },
       );
 
-      final user = response.user;
-      final userId = user?.id ?? 'usr-${DateTime.now().millisecondsSinceEpoch}';
+      User? user = response.user;
+      // Pastikan sesi JWT aktif agar RLS INSERT ke public.users memiliki auth.uid() yang cocok
+      if (response.session == null) {
+        try {
+          final loginRes = await client.auth.signInWithPassword(
+            email: cleanEmail,
+            password: password,
+          );
+          user ??= loginRes.user;
+        } catch (_) {}
+      }
+
+      final userId = user?.id;
       debugPrint('✅ Supabase Auth Berhasil: $userId ($cleanEmail)');
 
-      // 2. Simpan juga ke tabel 'profiles' jika ada di Supabase DB
-      try {
-        await client.from('profiles').upsert({
-          'id': userId,
-          'email': cleanEmail,
-          'full_name': cleanName,
-          'phone': cleanPhone,
-          'role': 'passenger',
-          'created_at': DateTime.now().toIso8601String(),
-        });
-        debugPrint('✅ Profile berhasil disimpan ke tabel Supabase.');
-      } catch (tableErr) {
-        debugPrint(
-          'Catatan tabel profiles: $tableErr (Auth Supabase tetap sukses)',
-        );
+      // 2. Simpan ke tabel tunggal 'users' di Supabase DB (hanya jika UUID valid)
+      if (SecurityGuard.isValidUuid(userId)) {
+        try {
+          final payload = SecurityGuard.sanitizePayload(
+            {
+              'id': userId!.trim(),
+              'email': cleanEmail,
+              'full_name': cleanName,
+              'phone': cleanPhone,
+              'role': 'passenger',
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            SecurityGuard.usersCoreColumns,
+          );
+          await client.from('users').upsert(payload);
+          debugPrint('✅ Data user berhasil disimpan ke tabel users di Supabase.');
+        } catch (tableErr) {
+          debugPrint(
+            '⚠️ Gagal upsert tabel users (periksa RLS/migrasi SQL): $tableErr',
+          );
+        }
       }
 
       // 3. Simpan preferensi identifier agar saat diarahkan ke Login kolom email otomatis terisi
@@ -93,66 +123,22 @@ class AuthService {
       );
 
       final lowerMsg = e.message.toLowerCase();
-
-      // Penanganan khusus jika terjadi masalah trigger database / rate limit / signups disabled di Supabase
-      if (lowerMsg.contains('rate limit') ||
-          lowerMsg.contains('signups are disabled') ||
-          lowerMsg.contains('database error') ||
-          lowerMsg.contains('unexpected_failure') ||
-          lowerMsg.contains('saving new user') ||
-          lowerMsg.contains('signup')) {
-        debugPrint(
-          '⚠️ Supabase Auth notice (${e.message}). Menyimpan data profil langsung ke database Supabase...',
-        );
-
-        final fallbackId = 'usr-${DateTime.now().millisecondsSinceEpoch}';
-        try {
-          final client = SupabaseService.client;
-          await client.from('profiles').upsert({
-            'id': fallbackId,
-            'email': cleanEmail,
-            'full_name': cleanName,
-            'phone': cleanPhone,
-            'role': 'passenger',
-            'created_at': DateTime.now().toIso8601String(),
-          });
-          debugPrint('✅ Data profil berhasil disimpan ke tabel Supabase.');
-        } catch (tableErr) {
-          debugPrint('Catatan insert tabel profiles: $tableErr');
-        }
-
-        await SessionService.setRememberMe(
-          remember: true,
-          identifier: cleanEmail,
-        );
-
-        return const AuthResult(
-          success: true,
-          message: 'Registrasi berhasil! Akun Anda telah siap, silakan masuk.',
-        );
-      }
-
       String msg = e.message;
       if (lowerMsg.contains('already registered') ||
           lowerMsg.contains('user already registered')) {
         msg = 'Email $cleanEmail sudah terdaftar. Silakan langsung login.';
       } else if (lowerMsg.contains('password should be at least')) {
         msg = 'Kata sandi minimal harus 8 karakter.';
+      } else if (lowerMsg.contains('rate limit')) {
+        msg = 'Terlalu banyak percobaan pendaftaran dalam waktu singkat. Coba lagi beberapa saat.';
       }
       return AuthResult(success: false, message: msg);
     } catch (e) {
-      debugPrint('❌ Error pendaftaran akun Supabase: $e');
-
-      // Fallback aman jika Supabase tidak dapat dijangkau
-      await SessionService.setRememberMe(
-        remember: true,
-        identifier: cleanEmail,
-      );
-
-      return const AuthResult(
-        success: true,
+      debugPrint('❌ Error koneksi saat pendaftaran akun Supabase: $e');
+      return AuthResult(
+        success: false,
         message:
-            'Registrasi berhasil disimpan! Silakan masuk dengan akun Anda.',
+            'Tidak dapat terhubung ke server pendaftaran. Pastikan koneksi / API Gateway aktif ($e).',
       );
     }
   }
@@ -195,15 +181,37 @@ class AuthService {
             password: password,
           );
 
-          // Sinkronisasi saldo akun dari Supabase profiles
+          // Pastikan baris user tercatat di public.users & sinkronkan saldo akun
           try {
-            final prof = await client
-                .from('profiles')
-                .select('balance')
+            var userRow = await client
+                .from('users')
+                .select('*')
                 .eq('email', cleanEmail)
                 .maybeSingle();
-            if (prof != null && prof['balance'] != null) {
-              final bal = (prof['balance'] as num).toInt();
+            if (userRow == null && SecurityGuard.isValidUuid(user.id)) {
+              final phoneMeta = metadata?['phone']?.toString() ?? '';
+              await client.from('users').upsert(
+                SecurityGuard.sanitizePayload(
+                  {
+                    'id': user.id,
+                    'email': cleanEmail,
+                    'full_name': displayName,
+                    if (phoneMeta.isNotEmpty) 'phone': phoneMeta,
+                    'role': (metadata?['role'] ?? 'passenger').toString(),
+                    'created_at': DateTime.now().toIso8601String(),
+                    'updated_at': DateTime.now().toIso8601String(),
+                  },
+                  SecurityGuard.usersCoreColumns,
+                ),
+              );
+              userRow = await client
+                  .from('users')
+                  .select('*')
+                  .eq('email', cleanEmail)
+                  .maybeSingle();
+            }
+            if (userRow != null && userRow['balance'] != null) {
+              final bal = (userRow['balance'] as num).toInt();
               await SessionService.setUserBalance(bal);
             }
           } catch (_) {}
@@ -428,23 +436,24 @@ class AuthService {
 
     try {
       final client = SupabaseService.client;
-      await client.from('profiles').upsert({
+      await client.from('users').upsert({
         'id': user.id,
         'email': email,
         'full_name': fullName,
         'role': 'passenger',
         'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
       });
-      final prof = await client
-          .from('profiles')
-          .select('balance')
+      final userRow = await client
+          .from('users')
+          .select('*')
           .eq('email', email)
           .maybeSingle();
-      if (prof != null && prof['balance'] != null) {
-        await SessionService.setUserBalance((prof['balance'] as num).toInt());
+      if (userRow != null && userRow['balance'] != null) {
+        await SessionService.setUserBalance((userRow['balance'] as num).toInt());
       }
     } catch (e) {
-      debugPrint('ℹ️ Sinkronisasi profil Google ke tabel profiles: $e');
+      debugPrint('ℹ️ Sinkronisasi profil Google ke tabel users: $e');
     }
 
     return AuthResult(
@@ -471,15 +480,16 @@ class AuthService {
       if (client.auth.currentUser != null) {
         userId = client.auth.currentUser!.id;
       }
-      await client.from('profiles').upsert({
+      await client.from('users').upsert({
         'id': userId,
         'email': cleanEmail,
         'full_name': cleanName,
         'role': 'passenger',
         'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
       });
     } catch (e) {
-      debugPrint('ℹ️ Catatan upsert profil Google: $e');
+      debugPrint('ℹ️ Catatan upsert user Google: $e');
     }
 
     await SessionService.saveUserSession(
@@ -574,83 +584,297 @@ class AuthService {
     return SupabaseService.client.auth.currentUser;
   }
 
-  // ================= PASSWORD RESET (BREVO + SUPABASE) =================
+  // ================= PASSWORD RESET 3-TAHAP (EMAIL -> OTP -> SANDI BARU) =================
 
-  /// Permintaan Reset Password:
-  /// 1. Buat kode OTP 6-digit & simpan batas kedaluwarsa 15 menit.
-  /// 2. Picu Supabase Auth resetPasswordForEmail (jika Custom SMTP aktif di Supabase Dashboard).
-  /// 3. Kirim email resmi berformat HTML dengan kode OTP langsung via Brevo Transactional API.
+  static String _generateLocalResetToken() {
+    final rnd = math.Random.secure();
+    final bytes = List<int>.generate(24, (_) => rnd.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  /// Periksa apakah email benar-benar terdaftar di database `public.users` (atau registry lokal saat mode offline/test).
+  static Future<({bool registered, String? fullName})> checkRegisteredEmail(
+    String email,
+  ) async {
+    final cleanEmail = SecurityGuard.sanitizeEmail(email);
+    if (cleanEmail.isEmpty) {
+      return (registered: false, fullName: null);
+    }
+
+    // 1. Jika Supabase aktif, cek langsung ke tabel tunggal `public.users`
+    if (SupabaseService.isInitialized) {
+      try {
+        final rows = await SupabaseService.client
+            .from('users')
+            .select('id, email, full_name')
+            .ilike('email', cleanEmail)
+            .limit(5);
+
+        for (final row in rows) {
+          final rowEmail =
+              (row['email'] ?? '').toString().trim().toLowerCase();
+          if (rowEmail == cleanEmail) {
+            return (
+              registered: true,
+              fullName: row['full_name']?.toString(),
+            );
+          }
+        }
+        return (registered: false, fullName: null);
+      } catch (e) {
+        debugPrint('⚠️ Gagal mengecek email di tabel public.users: $e');
+        if (kIsWeb) {
+          return (registered: false, fullName: null);
+        }
+      }
+    }
+
+    // 2. Mode offline / unit test: cek di registry akun terdaftar lokal
+    final localExists = await SessionService.hasRegisteredAccount(cleanEmail);
+    if (localExists) {
+      final name = await SessionService.getRegisteredAccountName(cleanEmail);
+      return (registered: true, fullName: name);
+    }
+
+    return (registered: false, fullName: null);
+  }
+
+  /// TAHAP 1: Permintaan Reset Password
+  /// 1. Validasi format email.
+  /// 2. Validasi ketat: email HARUS sudah terdaftar di database. Jika belum terdaftar -> TOLAK dan JANGAN kirim email.
+  /// 3. Kirim 6 digit kode OTP ke alamat email masing-masing user melalui Brevo Transactional Email.
   static Future<({bool success, String message, String? otpCode})>
       requestPasswordReset(String email) async {
-    final cleanEmail = email.trim().toLowerCase();
-    if (cleanEmail.isEmpty || !cleanEmail.contains('@')) {
+    final cleanEmail = SecurityGuard.sanitizeEmail(email);
+    if (cleanEmail.isEmpty) {
       return (
         success: false,
-        message: 'Harap masukkan alamat email yang valid.',
+        message: 'Harap masukkan alamat email yang valid (contoh: nama@email.com).',
         otpCode: null,
       );
     }
 
-    // 1. Buat kode OTP 6-digit numerik acak
-    final random = math.Random();
+    // Jalur Utama: Secure API Gateway (Web wajib lewat Gateway; Desktop/Mobile pakai jika aktif & Supabase initialized)
+    final shouldTryGateway = kIsWeb || SupabaseService.isInitialized;
+    if (shouldTryGateway) {
+      try {
+        final uri = Uri.parse(
+          '${AppEnv.apiGatewayUrl}/api/auth/password-reset/request',
+        );
+        final resp = await http
+            .post(
+              uri,
+              headers: const {
+                'accept': 'application/json',
+                'content-type': 'application/json',
+              },
+              body: jsonEncode({'email': cleanEmail}),
+            )
+            .timeout(const Duration(seconds: 15));
+
+        final decoded = jsonDecode(resp.body);
+        if (decoded is Map) {
+          final msg = (decoded['message'] ?? '').toString();
+          if (resp.statusCode >= 200 &&
+              resp.statusCode < 300 &&
+              decoded['success'] == true) {
+            return (
+              success: true,
+              message: msg.isNotEmpty
+                  ? msg
+                  : 'Kode verifikasi 6 digit telah dikirim ke $cleanEmail. Silakan periksa kotak masuk atau folder spam Anda.',
+              otpCode: null,
+            );
+          }
+
+          return (
+            success: false,
+            message: msg.isNotEmpty
+                ? msg
+                : 'Email $cleanEmail belum terdaftar di sistem TKA.',
+            otpCode: null,
+          );
+        }
+      } catch (e) {
+        debugPrint('ℹ️ Gateway password-reset request tidak terjangkau: $e');
+        if (kIsWeb) {
+          return (
+            success: false,
+            message:
+                'Tidak dapat terhubung ke server API Gateway (${AppEnv.apiGatewayUrl}). Pastikan server Gateway sedang berjalan.',
+            otpCode: null,
+          );
+        }
+      }
+    }
+
+    // Jalur Fallback (Non-Web ketika Gateway tidak berjalan / Unit Test):
+    // WAJIB cek email terdaftar terlebih dahulu!
+    final lookup = await checkRegisteredEmail(cleanEmail);
+    if (!lookup.registered) {
+      return (
+        success: false,
+        message:
+            'Email $cleanEmail belum terdaftar di sistem TKA. Silakan periksa kembali atau daftar akun terlebih dahulu.',
+        otpCode: null,
+      );
+    }
+
+    // Buat kode OTP 6-digit numerik acak kriptografis
+    final random = math.Random.secure();
     final otpCode = (100000 + random.nextInt(900000)).toString();
 
-    // Simpan OTP ke session service lokal
+    // Kirim email resmi Kode OTP langsung ke email masing-masing user via Brevo
+    final brevoResult = await BrevoNotificationService.sendPasswordResetOtpEmail(
+      recipientEmail: cleanEmail,
+      otpCode: otpCode,
+      userName: lookup.fullName,
+    );
+
+    if (!brevoResult.success) {
+      return (
+        success: false,
+        message:
+            'Gagal mengirim kode OTP ke $cleanEmail. Periksa koneksi internet atau konfigurasi Brevo (${brevoResult.error ?? "pengiriman ditolak"}).',
+        otpCode: null,
+      );
+    }
+
+    // Simpan OTP hanya setelah pengiriman email berhasil
     await SessionService.storePasswordResetOtp(
       email: cleanEmail,
       otp: otpCode,
       validFor: const Duration(minutes: 15),
     );
 
-    // Cari nama user jika ada
-    String? resolvedName;
-    try {
-      final activeAcc = await SessionService.getActiveAccount();
-      if (activeAcc?['email']?.toString().toLowerCase() == cleanEmail) {
-        resolvedName = activeAcc?['name']?.toString();
-      }
-    } catch (_) {}
-
-    // 2. Kirim email resmi Kode OTP via Brevo Transactional API
-    // Catatan: Tidak memanggil Supabase resetPasswordForEmail agar pengguna tidak menerima
-    // email dobel/konflik bertuliskan "Supabase Auth" yang hanya berisi link tanpa kode OTP.
-    final brevoResult = await BrevoNotificationService.sendPasswordResetOtpEmail(
-      recipientEmail: cleanEmail,
-      otpCode: otpCode,
-      userName: resolvedName,
-    );
-
-    if (brevoResult.success) {
-      return (
-        success: true,
-        message:
-            'Kode verifikasi 6 digit telah dikirim ke $cleanEmail via Brevo. Silakan periksa kotak masuk atau spam.',
-        otpCode: otpCode,
-      );
-    }
-
-    // Jika Brevo API gagal (misal kunci API belum diaktifkan), tetap izinkan kode OTP lokal untuk pengujian
     return (
       success: true,
       message:
-          'Permintaan reset diproses. Catatan Brevo: ${brevoResult.error ?? "Email dalam antrean"}. Gunakan kode OTP untuk verifikasi.',
+          'Kode verifikasi 6 digit telah dikirim ke $cleanEmail. Silakan periksa kotak masuk atau folder spam Anda.',
       otpCode: otpCode,
     );
   }
 
-  /// Verifikasi Kode OTP dan simpan password baru
+  /// TAHAP 2: Verifikasi Kode OTP secara mandiri sebelum berpindah ke halaman Ubah Kata Sandi.
+  static Future<({bool valid, String message, String? resetToken})>
+      verifyPasswordResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final cleanEmail = SecurityGuard.sanitizeEmail(email);
+    final cleanOtp = otp.trim();
+
+    if (cleanEmail.isEmpty) {
+      return (
+        valid: false,
+        message: 'Alamat email tidak valid.',
+        resetToken: null,
+      );
+    }
+
+    if (!RegExp(r'^\d{6}$').hasMatch(cleanOtp)) {
+      return (
+        valid: false,
+        message: 'Kode OTP harus berupa 6 digit angka.',
+        resetToken: null,
+      );
+    }
+
+    // Jalur Utama: Verifikasi melalui Secure API Gateway
+    final shouldTryGateway = kIsWeb || SupabaseService.isInitialized;
+    if (shouldTryGateway) {
+      try {
+        final uri = Uri.parse(
+          '${AppEnv.apiGatewayUrl}/api/auth/password-reset/verify-otp',
+        );
+        final resp = await http
+            .post(
+              uri,
+              headers: const {
+                'accept': 'application/json',
+                'content-type': 'application/json',
+              },
+              body: jsonEncode({'email': cleanEmail, 'otp': cleanOtp}),
+            )
+            .timeout(const Duration(seconds: 12));
+
+        final decoded = jsonDecode(resp.body);
+        if (decoded is Map) {
+          final msg = (decoded['message'] ?? '').toString();
+          if (resp.statusCode >= 200 &&
+              resp.statusCode < 300 &&
+              decoded['valid'] == true) {
+            return (
+              valid: true,
+              message: msg.isNotEmpty
+                  ? msg
+                  : 'Kode OTP valid! Silakan buat kata sandi baru Anda.',
+              resetToken: decoded['resetToken']?.toString(),
+            );
+          }
+          return (
+            valid: false,
+            message: msg.isNotEmpty
+                ? msg
+                : 'Kode OTP yang Anda masukkan salah atau telah kedaluwarsa.',
+            resetToken: null,
+          );
+        }
+      } catch (e) {
+        debugPrint('ℹ️ Gateway verify-otp tidak terjangkau: $e');
+        if (kIsWeb) {
+          return (
+            valid: false,
+            message:
+                'Tidak dapat terhubung ke server verifikasi OTP (${AppEnv.apiGatewayUrl}).',
+            resetToken: null,
+          );
+        }
+      }
+    }
+
+    // Jalur Fallback Lokal (Offline / Unit Test)
+    final localVerify = await SessionService.verifyPasswordResetOtp(
+      email: cleanEmail,
+      otp: cleanOtp,
+    );
+
+    if (!localVerify.valid) {
+      return (
+        valid: false,
+        message: localVerify.message,
+        resetToken: null,
+      );
+    }
+
+    final localToken = _generateLocalResetToken();
+    await SessionService.markPasswordResetOtpVerified(
+      email: cleanEmail,
+      resetToken: localToken,
+    );
+
+    return (
+      valid: true,
+      message: 'Kode OTP valid! Silakan buat kata sandi baru Anda.',
+      resetToken: localToken,
+    );
+  }
+
+  /// TAHAP 3: Simpan Kata Sandi Baru setelah kode OTP terverifikasi valid.
   static Future<({bool success, String message})> resetPasswordWithOtp({
     required String email,
     required String otp,
     required String newPassword,
+    String? resetToken,
   }) async {
-    final cleanEmail = email.trim().toLowerCase();
+    final cleanEmail = SecurityGuard.sanitizeEmail(email);
     final cleanOtp = otp.trim();
+    final cleanToken = (resetToken ?? '').trim();
 
-    if (cleanOtp.length < 6) {
+    if (cleanEmail.isEmpty) {
       return (
         success: false,
-        message: 'Kode OTP harus berupa 6 digit angka.',
+        message: 'Alamat email tidak valid.',
       );
     }
 
@@ -661,17 +885,94 @@ class AuthService {
       );
     }
 
-    // 1. Verifikasi kode OTP
-    final verifyResult = await SessionService.verifyPasswordResetOtp(
-      email: cleanEmail,
-      otp: cleanOtp,
-    );
+    // Jalur Utama: Update password nyata di Supabase Auth via Secure API Gateway
+    final shouldTryGateway =
+        cleanToken.isNotEmpty && (kIsWeb || SupabaseService.isInitialized);
+    if (shouldTryGateway) {
+      try {
+        final uri = Uri.parse(
+          '${AppEnv.apiGatewayUrl}/api/auth/password-reset/confirm',
+        );
+        final resp = await http
+            .post(
+              uri,
+              headers: const {
+                'accept': 'application/json',
+                'content-type': 'application/json',
+              },
+              body: jsonEncode({
+                'email': cleanEmail,
+                'resetToken': cleanToken,
+                'newPassword': newPassword,
+              }),
+            )
+            .timeout(const Duration(seconds: 15));
 
-    if (!verifyResult.valid) {
-      return (
-        success: false,
-        message: verifyResult.message,
+        final decoded = jsonDecode(resp.body);
+        if (decoded is Map) {
+          final msg = (decoded['message'] ?? '').toString();
+          if (resp.statusCode >= 200 &&
+              resp.statusCode < 300 &&
+              decoded['success'] == true) {
+            // Sinkronkan juga ke cache akun lokal agar fallback lokal tidak memakai sandi lama
+            await SessionService.updateAccountPassword(
+              identifier: cleanEmail,
+              newPassword: newPassword,
+            );
+            await SessionService.consumePasswordResetOtp(cleanEmail);
+            return (
+              success: true,
+              message: msg.isNotEmpty
+                  ? msg
+                  : 'Kata sandi berhasil diperbarui! Silakan masuk dengan kata sandi baru Anda.',
+            );
+          }
+          return (
+            success: false,
+            message: msg.isNotEmpty
+                ? msg
+                : 'Gagal memperbarui kata sandi. Silakan verifikasi ulang kode OTP.',
+          );
+        }
+      } catch (e) {
+        debugPrint('ℹ️ Gateway confirm password reset tidak terjangkau: $e');
+        if (kIsWeb) {
+          return (
+            success: false,
+            message:
+                'Tidak dapat terhubung ke server untuk menyimpan kata sandi baru.',
+          );
+        }
+      }
+    }
+
+    // Jalur Fallback Lokal (Offline / Unit Test):
+    // 1. Verifikasi resetToken (jika tersedia dari Tahap 2) atau verifikasi OTP langsung
+    if (cleanToken.isNotEmpty) {
+      final tokenVerify = await SessionService.verifyPasswordResetToken(
+        email: cleanEmail,
+        resetToken: cleanToken,
       );
+      if (!tokenVerify.valid) {
+        return (success: false, message: tokenVerify.message);
+      }
+    } else {
+      if (!RegExp(r'^\d{6}$').hasMatch(cleanOtp)) {
+        return (
+          success: false,
+          message: 'Kode OTP harus berupa 6 digit angka.',
+        );
+      }
+      final verifyResult = await SessionService.verifyPasswordResetOtp(
+        email: cleanEmail,
+        otp: cleanOtp,
+      );
+      if (!verifyResult.valid) {
+        return (
+          success: false,
+          message: verifyResult.message,
+        );
+      }
     }
 
     // 2. Perbarui password di akun lokal
@@ -680,7 +981,7 @@ class AuthService {
       newPassword: newPassword,
     );
 
-    // 3. Hapus OTP yang sudah dipakai
+    // 3. Hapus OTP & token verifikasi yang sudah dipakai
     await SessionService.consumePasswordResetOtp(cleanEmail);
 
     // 4. Update di Supabase Auth jika sesi user tersedia
@@ -701,7 +1002,8 @@ class AuthService {
 
     return (
       success: true,
-      message: 'Kata sandi berhasil diperbarui! Silakan masuk dengan kata sandi baru Anda.',
+      message:
+          'Kata sandi berhasil diperbarui! Silakan masuk dengan kata sandi baru Anda.',
     );
   }
 }

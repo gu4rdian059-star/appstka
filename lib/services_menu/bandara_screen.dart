@@ -1,7 +1,21 @@
 import 'package:flutter/material.dart';
 
-class BandaraScreen extends StatelessWidget {
+import '../services/user_db_service.dart';
+
+class BandaraScreen extends StatefulWidget {
   const BandaraScreen({super.key});
+
+  @override
+  State<BandaraScreen> createState() => _BandaraScreenState();
+}
+
+class _BandaraScreenState extends State<BandaraScreen> {
+  @override
+  void initState() {
+    super.initState();
+    UserDatabaseService.getStations(refreshRemote: true);
+    UserDatabaseService.getAllTrainSchedules(refreshRemote: true);
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -178,7 +178,7 @@ class SessionService {
     return prefs.getInt(_keyUserDocType) ?? 0;
   }
 
-  /// Sinkronkan pembaruan data profil pengguna ke tabel 'profiles' di Supabase
+  /// Sinkronkan pembaruan data profil pengguna ke tabel 'users' di Supabase
   static Future<bool> syncUserProfileToSupabase({
     required String name,
     required String email,
@@ -217,7 +217,23 @@ class SessionService {
         updateData['birth_date'] = birthDate.toIso8601String().split('T').first;
       }
 
-      debugPrint('🔄 Menyelaraskan profil ke Supabase profiles untuk: $cleanEmail');
+      debugPrint('🔄 Menyelaraskan data user ke Supabase users untuk: $cleanEmail');
+
+      // Cek skema kolom aktual yang ada di baris users agar tidak pernah memicu 400 PGRST204
+      try {
+        final existingRow = await client
+            .from('users')
+            .select('*')
+            .eq('email', cleanEmail)
+            .maybeSingle();
+        if (existingRow != null && existingRow.isNotEmpty) {
+          final validKeys = existingRow.keys.toSet();
+          updateData.removeWhere((k, _) => !validKeys.contains(k));
+        } else {
+          const safeCore = {'full_name', 'phone', 'updated_at'};
+          updateData.removeWhere((k, _) => !safeCore.contains(k));
+        }
+      } catch (_) {}
 
       int attempts = 0;
       bool success = false;
@@ -225,7 +241,7 @@ class SessionService {
         attempts++;
         try {
           // 1. Coba update record yang sudah ada
-          final query = client.from('profiles').update(updateData);
+          final query = client.from('users').update(updateData);
           if (currentUserId != null &&
               currentUserId.isNotEmpty &&
               !currentUserId.startsWith('usr-')) {
@@ -235,7 +251,7 @@ class SessionService {
           }
 
           debugPrint(
-            '✅ [Supabase DB] Profil berhasil diperbarui di Supabase: $updateData',
+            '✅ [Supabase DB] Data user berhasil diperbarui di Supabase: $updateData',
           );
           success = true;
           break;
@@ -243,7 +259,7 @@ class SessionService {
           final msg = pe.message.toLowerCase();
           bool removedAny = false;
 
-          // Tangani PGRST204: Could not find the 'avatar_url' column of 'profiles' in the schema cache
+          // Tangani PGRST204: Could not find the 'avatar_url' column of 'users' in the schema cache
           final pgrstMatch = RegExp(
             r"could not find the '([a-zA-Z0-9_]+)' column",
           ).firstMatch(msg);
@@ -251,22 +267,22 @@ class SessionService {
             final col = pgrstMatch.group(1);
             if (col != null && updateData.containsKey(col)) {
               debugPrint(
-                'ℹ️ Kolom "$col" belum ada di schema profiles Supabase. Melepas kolom tersebut...',
+                'ℹ️ Kolom "$col" belum ada di schema users Supabase. Melepas kolom tersebut...',
               );
               updateData.remove(col);
               removedAny = true;
             }
           }
 
-          // Tangani 42703: column profiles.xyz does not exist
+          // Tangani 42703: column users.xyz does not exist
           final colMatch = RegExp(
-            r"column (?:profiles\.)?([a-zA-Z0-9_]+) does not exist",
+            r"column (?:users\.|profiles\.)?([a-zA-Z0-9_]+) does not exist",
           ).firstMatch(msg);
           if (colMatch != null) {
             final col = colMatch.group(1);
             if (col != null && updateData.containsKey(col)) {
               debugPrint(
-                'ℹ️ Kolom "$col" belum ada di tabel profiles Supabase. Melepas kolom tersebut...',
+                'ℹ️ Kolom "$col" belum ada di tabel users Supabase. Melepas kolom tersebut...',
               );
               updateData.remove(col);
               removedAny = true;
@@ -289,7 +305,7 @@ class SessionService {
             }
           }
         } catch (e) {
-          debugPrint('Catatan error update profiles: $e');
+          debugPrint('Catatan error update users: $e');
           break;
         }
       }
@@ -316,8 +332,8 @@ class SessionService {
       try {
         final client = SupabaseService.client;
         final res = await client
-            .from('profiles')
-            .select('balance')
+            .from('users')
+            .select('*')
             .eq('email', email)
             .maybeSingle();
         if (res != null && res['balance'] != null) {
@@ -328,11 +344,7 @@ class SessionService {
           }
         }
       } catch (e) {
-        // Jika kolom balance belum ada di tabel profiles Supabase, fallback hening ke storage lokal
-        final errStr = e.toString();
-        if (!errStr.contains('42703') && !errStr.contains('balance does not exist')) {
-          debugPrint('Catatan sinkronisasi saldo dari Supabase: $e');
-        }
+        debugPrint('Catatan sinkronisasi saldo dari Supabase: $e');
       }
     }
 
@@ -344,27 +356,30 @@ class SessionService {
     return localBal;
   }
 
-  /// Update saldo TKAPay user aktif (disimpan ke lokal dan disinkronkan ke Supabase)
+  /// Update saldo TKAPay user aktif (disimpan ke lokal dan disinkronkan ke Supabase secara aman tanpa 400)
   static Future<void> setUserBalance(int amount) async {
     final prefs = await SharedPreferences.getInstance();
     final email = (await getUserEmail())?.toLowerCase().trim() ?? '';
     if (email.isNotEmpty) {
       await prefs.setInt('$_keyUserBalancePrefix$email', amount);
-      // Sinkronkan ke tabel profiles di Supabase jika terhubung
       try {
         final client = SupabaseService.client;
-        await client
-            .from('profiles')
-            .update({'balance': amount})
-            .eq('email', email);
-        debugPrint(
-          '✅ [Supabase Balance] Saldo Rp$amount berhasil diperbarui di Supabase untuk $email',
-        );
-      } catch (e) {
-        final errStr = e.toString();
-        if (!errStr.contains('42703') && !errStr.contains('balance does not exist')) {
-          debugPrint('Catatan update saldo di Supabase: $e');
+        final existing = await client
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .maybeSingle();
+        if (existing != null && existing.containsKey('balance')) {
+          await client
+              .from('users')
+              .update({'balance': amount})
+              .eq('email', email);
+          debugPrint(
+            '✅ [Supabase Balance] Saldo Rp$amount berhasil diperbarui di Supabase untuk $email',
+          );
         }
+      } catch (e) {
+        debugPrint('Catatan update saldo di Supabase: $e');
       }
     }
   }
@@ -407,7 +422,7 @@ class SessionService {
         (isDemoSamuel ? 'Member Gold' : 'Member Baru');
   }
 
-  /// Ambil URL avatar profil user yang aktif (dari cache lokal atau tabel profiles di Supabase)
+  /// Ambil URL avatar profil user yang aktif (dari cache lokal atau tabel users di Supabase)
   static Future<String?> getUserAvatar() async {
     final prefs = await SharedPreferences.getInstance();
     final email = (await getUserEmail())?.toLowerCase().trim() ?? '';
@@ -418,12 +433,12 @@ class SessionService {
       return localAvatar;
     }
 
-    // Periksa ke tabel profiles di Supabase jika belum ada di lokal
+    // Periksa ke tabel users di Supabase jika belum ada di lokal (gunakan select * agar bebas 400)
     try {
       final client = SupabaseService.client;
       final res = await client
-          .from('profiles')
-          .select('avatar_url')
+          .from('users')
+          .select('*')
           .eq('email', email)
           .maybeSingle();
       if (res != null && res['avatar_url'] != null) {
@@ -440,7 +455,7 @@ class SessionService {
     return null;
   }
 
-  /// Simpan URL avatar user aktif ke lokal dan sinkronkan ke tabel profiles di Supabase
+  /// Simpan URL avatar user aktif ke lokal dan sinkronkan ke tabel users di Supabase jika kolom tersedia
   static Future<void> setUserAvatar(String url) async {
     final prefs = await SharedPreferences.getInstance();
     final email = (await getUserEmail())?.toLowerCase().trim() ?? '';
@@ -448,13 +463,20 @@ class SessionService {
       await prefs.setString('$_keyUserAvatarPrefix$email', url);
       try {
         final client = SupabaseService.client;
-        await client
-            .from('profiles')
-            .update({'avatar_url': url})
-            .eq('email', email);
-        debugPrint(
-          '✅ [Supabase Avatar] Avatar URL berhasil diperbarui di Supabase untuk $email: $url',
-        );
+        final existing = await client
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .maybeSingle();
+        if (existing != null && existing.containsKey('avatar_url')) {
+          await client
+              .from('users')
+              .update({'avatar_url': url})
+              .eq('email', email);
+          debugPrint(
+            '✅ [Supabase Avatar] Avatar URL berhasil diperbarui di Supabase untuk $email',
+          );
+        }
       } catch (e) {
         debugPrint('Catatan update avatar di Supabase: $e');
       }
@@ -510,6 +532,41 @@ class SessionService {
     return null;
   }
 
+  /// Cek apakah email/identifier sudah terdaftar di registry akun lokal
+  static Future<bool> hasRegisteredAccount(String identifier) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyRegisteredUsers);
+    if (raw == null) return false;
+    try {
+      final users = Map<String, dynamic>.from(jsonDecode(raw));
+      final cleanId = identifier.trim().toLowerCase();
+      if (users.containsKey(cleanId)) return true;
+      for (final entry in users.values) {
+        if (entry is Map) {
+          final email = entry['email']?.toString().trim().toLowerCase();
+          if (email == cleanId) return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /// Ambil nama akun terdaftar lokal berdasarkan email
+  static Future<String?> getRegisteredAccountName(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyRegisteredUsers);
+    if (raw == null) return null;
+    try {
+      final users = Map<String, dynamic>.from(jsonDecode(raw));
+      final cleanId = email.trim().toLowerCase();
+      final user = users[cleanId];
+      if (user is Map && user['name'] != null) {
+        return user['name'].toString();
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// Hapus sesi login aktif (Logout tanpa menghapus saldo atau akun tersimpan)
   static Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
@@ -544,6 +601,8 @@ class SessionService {
   // ================= PASSWORD RESET OTP & CREDENTIAL UPDATES =================
   static const String _keyOtpPrefix = 'tka_reset_otp_';
   static const String _keyOtpExpiryPrefix = 'tka_reset_otp_exp_';
+  static const String _keyResetTokenPrefix = 'tka_reset_token_';
+  static const String _keyResetTokenExpiryPrefix = 'tka_reset_token_exp_';
 
   /// Simpan kode OTP reset password dengan batas kedaluwarsa (default 15 menit)
   static Future<void> storePasswordResetOtp({
@@ -556,6 +615,9 @@ class SessionService {
     final expiryTime = DateTime.now().add(validFor).millisecondsSinceEpoch;
     await prefs.setString('$_keyOtpPrefix$cleanEmail', otp.trim());
     await prefs.setInt('$_keyOtpExpiryPrefix$cleanEmail', expiryTime);
+    // Hapus token verifikasi lama jika user meminta OTP baru
+    await prefs.remove('$_keyResetTokenPrefix$cleanEmail');
+    await prefs.remove('$_keyResetTokenExpiryPrefix$cleanEmail');
   }
 
   /// Verifikasi kode OTP reset password
@@ -597,13 +659,65 @@ class SessionService {
     return (valid: true, message: 'Kode OTP valid.');
   }
 
-  /// Hapus kode OTP setelah berhasil digunakan
+  /// Tandai OTP sudah diverifikasi dan simpan token sementara untuk tahap ubah kata sandi
+  static Future<void> markPasswordResetOtpVerified({
+    required String email,
+    required String resetToken,
+    Duration validFor = const Duration(minutes: 10),
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cleanEmail = email.trim().toLowerCase();
+    final expiryTime = DateTime.now().add(validFor).millisecondsSinceEpoch;
+    await prefs.setString('$_keyResetTokenPrefix$cleanEmail', resetToken.trim());
+    await prefs.setInt('$_keyResetTokenExpiryPrefix$cleanEmail', expiryTime);
+  }
+
+  /// Verifikasi token reset sementara sebelum mengubah kata sandi
+  static Future<({bool valid, String message})> verifyPasswordResetToken({
+    required String email,
+    required String resetToken,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cleanEmail = email.trim().toLowerCase();
+    final storedToken = prefs.getString('$_keyResetTokenPrefix$cleanEmail');
+    final storedExp = prefs.getInt('$_keyResetTokenExpiryPrefix$cleanEmail');
+
+    if (storedToken == null || storedExp == null) {
+      return (
+        valid: false,
+        message: 'Sesi verifikasi OTP belum valid. Silakan verifikasi kode OTP terlebih dahulu.',
+      );
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now > storedExp) {
+      await prefs.remove('$_keyResetTokenPrefix$cleanEmail');
+      await prefs.remove('$_keyResetTokenExpiryPrefix$cleanEmail');
+      return (
+        valid: false,
+        message: 'Sesi verifikasi OTP telah kedaluwarsa. Silakan ulangi verifikasi kode OTP.',
+      );
+    }
+
+    if (storedToken != resetToken.trim()) {
+      return (
+        valid: false,
+        message: 'Token verifikasi tidak sesuai. Silakan ulangi verifikasi kode OTP.',
+      );
+    }
+
+    return (valid: true, message: 'Sesi verifikasi OTP valid.');
+  }
+
+  /// Hapus kode OTP dan token verifikasi setelah berhasil digunakan
   static Future<void> consumePasswordResetOtp(String email) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cleanEmail = email.trim().toLowerCase();
       await prefs.remove('$_keyOtpPrefix$cleanEmail');
       await prefs.remove('$_keyOtpExpiryPrefix$cleanEmail');
+      await prefs.remove('$_keyResetTokenPrefix$cleanEmail');
+      await prefs.remove('$_keyResetTokenExpiryPrefix$cleanEmail');
     } catch (_) {}
   }
 

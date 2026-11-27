@@ -287,6 +287,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         title: Image.asset(
           'assets/images/logo_tka_full.png',
           height: 28,
+          cacheWidth: 140,
           fit: BoxFit.contain,
         ),
         centerTitle: true,

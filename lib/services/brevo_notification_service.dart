@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_env.dart';
 import '../models/tracking_models.dart';
 import 'indonesia_time_service.dart';
+import 'security_guard.dart';
 import 'session_service.dart';
 import 'supabase_service.dart';
 
@@ -78,12 +79,16 @@ class BrevoNotificationService {
     return null;
   }
 
+  static bool _notificationsTableChecked = false;
+  static bool _notificationsTableAvailable = false;
+
   /// Ambil daftar notifikasi user dari Supabase (fallback ke cache lokal jika offline / tabel belum dimigrasi).
   static Future<List<TrainNotificationModel>> getNotifications() async {
     final userId = await _resolveUserId();
     final localList = await _loadLocalNotifications(userId);
 
-    if (SupabaseService.isInitialized) {
+    if (SupabaseService.isInitialized &&
+        (!_notificationsTableChecked || _notificationsTableAvailable)) {
       try {
         final rows = await SupabaseService.client
             .from('train_notifications')
@@ -91,6 +96,8 @@ class BrevoNotificationService {
             .eq('user_id', userId)
             .order('created_at', ascending: false)
             .limit(80);
+        _notificationsTableChecked = true;
+        _notificationsTableAvailable = true;
 
         final remote = rows
             .map((e) => TrainNotificationModel.fromMap(Map<String, dynamic>.from(e)))
@@ -110,6 +117,10 @@ class BrevoNotificationService {
         await _saveLocalNotifications(userId, combined);
         return combined;
       } catch (e) {
+        _notificationsTableChecked = true;
+        if (e.toString().contains('PGRST205')) {
+          _notificationsTableAvailable = false;
+        }
         debugPrint('Catatan ambil train_notifications Supabase: $e');
       }
     }
@@ -154,9 +165,9 @@ class BrevoNotificationService {
       );
     }
 
-    // 2. CEK & SIMPAN KE SUPABASE (ATOMIC UNIQUE CONSTRAINT ON (user_id, event_dedup_key))
+    // 2. CEK & SIMPAN KE SUPABASE (hanya jika tabel train_notifications tersedia)
     String notificationId = 'notif-${DateTime.now().millisecondsSinceEpoch}';
-    if (SupabaseService.isInitialized) {
+    if (SupabaseService.isInitialized && _notificationsTableAvailable) {
       try {
         final existing = await SupabaseService.client
             .from('train_notifications')
@@ -430,7 +441,7 @@ class BrevoNotificationService {
     required String htmlContent,
   }) async {
     final apiKey = AppEnv.brevoApiKey;
-    if (apiKey.isEmpty) {
+    if (!kIsWeb && apiKey.isEmpty) {
       debugPrint('⚠️ [Brevo] BREVO_API_KEY belum dikonfigurasi di file .env.');
       return (
         success: false,
@@ -439,28 +450,35 @@ class BrevoNotificationService {
       );
     }
 
-    final cleanRecipient = recipientEmail.trim();
-    if (!cleanRecipient.contains('@')) {
+    final cleanRecipient = SecurityGuard.sanitizeEmail(recipientEmail);
+    if (cleanRecipient.isEmpty) {
       return (
         success: false,
         messageId: null,
-        error: 'Format email penerima tidak valid ($cleanRecipient)',
+        error: 'Format email penerima tidak valid ($recipientEmail)',
       );
     }
 
     final targetName = (recipientName != null && recipientName.trim().isNotEmpty)
-        ? recipientName.trim()
+        ? SecurityGuard.sanitizeText(recipientName, maxLength: 80)
         : cleanRecipient.split('@').first;
+    final safeSubject = SecurityGuard.sanitizeText(subject, maxLength: 160);
 
     try {
+      final endpointUri = kIsWeb
+          ? Uri.parse('${AppEnv.apiGatewayUrl}/brevo/v3/smtp/email')
+          : Uri.parse('https://api.brevo.com/v3/smtp/email');
+
+      final headers = <String, String>{
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        if (!kIsWeb) 'api-key': apiKey,
+      };
+
       final resp = await http
           .post(
-            Uri.parse('https://api.brevo.com/v3/smtp/email'),
-            headers: {
-              'accept': 'application/json',
-              'content-type': 'application/json',
-              'api-key': apiKey,
-            },
+            endpointUri,
+            headers: headers,
             body: jsonEncode({
               'sender': {
                 'name': AppEnv.brevoSenderName,
@@ -472,7 +490,7 @@ class BrevoNotificationService {
                   'name': targetName,
                 }
               ],
-              'subject': subject,
+              'subject': safeSubject,
               'htmlContent': htmlContent,
             }),
           )
@@ -503,9 +521,13 @@ class BrevoNotificationService {
     required String otpCode,
     String? userName,
   }) async {
-    final name = (userName != null && userName.trim().isNotEmpty)
-        ? userName.trim()
-        : 'Pelanggan TKA';
+    final name = SecurityGuard.escapeHtml(
+      (userName != null && userName.trim().isNotEmpty)
+          ? userName.trim()
+          : 'Pelanggan TKA',
+    );
+    final safeOtp = SecurityGuard.escapeHtml(otpCode.trim());
+    final safeRecipient = SecurityGuard.escapeHtml(recipientEmail.trim());
     final timestampWib = IndonesiaTimeService.formatDateTime(
       DateTime.now().toUtc(),
       withSeconds: true,
@@ -539,7 +561,7 @@ class BrevoNotificationService {
           Kode Verifikasi (OTP)
         </div>
         <div style="font-size:36px;font-weight:900;letter-spacing:10px;color:#062056;font-family:'Courier New',Courier,monospace;">
-          $otpCode
+          $safeOtp
         </div>
         <div style="font-size:12px;color:#ef4444;font-weight:600;margin-top:10px;">
           ⏱ Berlaku selama 15 menit
@@ -552,7 +574,7 @@ class BrevoNotificationService {
       </div>
       <div style="font-size:11.5px;color:#94a3b8;line-height:1.5;border-top:1px solid #f1f5f9;padding-top:16px;">
         Waktu Permintaan: <strong>$timestampWib</strong><br/>
-        Email Penerima: <strong>$recipientEmail</strong>
+        Email Penerima: <strong>$safeRecipient</strong>
       </div>
     </div>
     <div style="background:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
@@ -597,6 +619,17 @@ class BrevoNotificationService {
     );
     final formattedPrice =
         'Rp ${totalAmount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+    final safeCode = SecurityGuard.escapeHtml(bookingCode);
+    final safeTrain = SecurityGuard.escapeHtml(trainName);
+    final safeClass = SecurityGuard.escapeHtml(trainClass);
+    final safeDate = SecurityGuard.escapeHtml(travelDate);
+    final safeDep = SecurityGuard.escapeHtml(departureTime);
+    final safeArr = SecurityGuard.escapeHtml(arrivalTime);
+    final safeOrig = SecurityGuard.escapeHtml(originStation);
+    final safeDest = SecurityGuard.escapeHtml(destStation);
+    final safeName = SecurityGuard.escapeHtml(passengerName);
+    final safeSeat = SecurityGuard.escapeHtml(seatNumber);
+    final safeMethod = SecurityGuard.escapeHtml(paymentMethod ?? 'Online Payment');
 
     final htmlContent = '''
 <!DOCTYPE html>
@@ -618,7 +651,7 @@ class BrevoNotificationService {
           </td>
           <td style="text-align:right;">
             <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;">Kode Booking</div>
-            <div style="font-size:18px;font-weight:900;color:#F26716;letter-spacing:1px;">$bookingCode</div>
+            <div style="font-size:18px;font-weight:900;color:#F26716;letter-spacing:1px;">$safeCode</div>
           </td>
         </tr>
       </table>
@@ -626,21 +659,21 @@ class BrevoNotificationService {
     <div style="padding:24px;color:#1e293b;">
       <div style="background:#f1f5f9;border-radius:12px;padding:16px;margin-bottom:20px;">
         <div style="font-size:15px;font-weight:bold;color:#062056;margin-bottom:4px;">
-          $trainName <span style="font-size:12px;font-weight:normal;color:#64748b;">($trainClass)</span>
+          $safeTrain <span style="font-size:12px;font-weight:normal;color:#64748b;">($safeClass)</span>
         </div>
-        <div style="font-size:12.5px;color:#64748b;margin-bottom:12px;">Tanggal Keberangkatan: <strong>$travelDate</strong></div>
+        <div style="font-size:12.5px;color:#64748b;margin-bottom:12px;">Tanggal Keberangkatan: <strong>$safeDate</strong></div>
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
           <tr>
             <td style="width:45%;vertical-align:top;">
               <div style="font-size:11px;color:#94a3b8;">BERANGKAT</div>
-              <div style="font-size:16px;font-weight:bold;color:#062056;">$departureTime</div>
-              <div style="font-weight:600;color:#1e293b;">$originStation</div>
+              <div style="font-size:16px;font-weight:bold;color:#062056;">$safeDep</div>
+              <div style="font-weight:600;color:#1e293b;">$safeOrig</div>
             </td>
             <td style="width:10%;text-align:center;font-size:18px;color:#F26716;">➔</td>
             <td style="width:45%;vertical-align:top;text-align:right;">
               <div style="font-size:11px;color:#94a3b8;">TIBA</div>
-              <div style="font-size:16px;font-weight:bold;color:#062056;">$arrivalTime</div>
-              <div style="font-weight:600;color:#1e293b;">$destStation</div>
+              <div style="font-size:16px;font-weight:bold;color:#062056;">$safeArr</div>
+              <div style="font-weight:600;color:#1e293b;">$safeDest</div>
             </td>
           </tr>
         </table>
@@ -648,15 +681,15 @@ class BrevoNotificationService {
       <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;border-bottom:1px solid #f1f5f9;padding-bottom:12px;">
         <tr>
           <td style="padding:6px 0;color:#64748b;">Nama Penumpang</td>
-          <td style="padding:6px 0;text-align:right;font-weight:bold;color:#062056;">$passengerName</td>
+          <td style="padding:6px 0;text-align:right;font-weight:bold;color:#062056;">$safeName</td>
         </tr>
         <tr>
           <td style="padding:6px 0;color:#64748b;">Nomor Kursi</td>
-          <td style="padding:6px 0;text-align:right;font-weight:bold;color:#F26716;">$seatNumber</td>
+          <td style="padding:6px 0;text-align:right;font-weight:bold;color:#F26716;">$safeSeat</td>
         </tr>
         <tr>
           <td style="padding:6px 0;color:#64748b;">Metode Pembayaran</td>
-          <td style="padding:6px 0;text-align:right;font-weight:600;color:#1e293b;">${paymentMethod ?? 'Online Payment'}</td>
+          <td style="padding:6px 0;text-align:right;font-weight:600;color:#1e293b;">$safeMethod</td>
         </tr>
         <tr>
           <td style="padding:8px 0;color:#062056;font-size:14px;font-weight:bold;">Total Pembayaran</td>
@@ -669,7 +702,7 @@ class BrevoNotificationService {
     </div>
     <div style="background:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;">
       Diterbitkan otomatis oleh TKA Rail Ticketing System pada $timestampWib.<br/>
-      ID Booking: <code>$bookingCode</code> • Dukungan: support@tka-rail.id
+      ID Booking: <code>$safeCode</code> • Dukungan: support@tka-rail.id
     </div>
   </div>
 </body>
@@ -701,6 +734,10 @@ class BrevoNotificationService {
     );
     final formattedRefund =
         'Rp ${refundAmount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+    final safeName = SecurityGuard.escapeHtml(passengerName ?? 'Pelanggan TKA');
+    final safeCode = SecurityGuard.escapeHtml(bookingCode);
+    final safeTrain = SecurityGuard.escapeHtml(trainName);
+    final safeReason = SecurityGuard.escapeHtml(reason);
 
     final htmlContent = '''
 <!DOCTYPE html>
@@ -719,7 +756,7 @@ class BrevoNotificationService {
     </div>
     <div style="padding:24px;color:#1e293b;">
       <p style="font-size:14px;line-height:1.6;margin:0 0 16px;">
-        Halo <strong>${passengerName ?? 'Pelanggan TKA'}</strong>,
+        Halo <strong>$safeName</strong>,
       </p>
       <p style="font-size:13.5px;line-height:1.6;margin:0 0 20px;color:#475569;">
         Permohonan pembatalan perjalanan dan pengembalian dana (refund) untuk tiket Anda telah kami terima dan tercatat dalam sistem TKA Rail.
@@ -728,15 +765,15 @@ class BrevoNotificationService {
         <table style="width:100%;border-collapse:collapse;">
           <tr>
             <td style="padding:4px 0;color:#64748b;">Kode Booking</td>
-            <td style="padding:4px 0;text-align:right;font-weight:bold;color:#062056;">$bookingCode</td>
+            <td style="padding:4px 0;text-align:right;font-weight:bold;color:#062056;">$safeCode</td>
           </tr>
           <tr>
             <td style="padding:4px 0;color:#64748b;">Kereta Api</td>
-            <td style="padding:4px 0;text-align:right;font-weight:600;color:#1e293b;">$trainName</td>
+            <td style="padding:4px 0;text-align:right;font-weight:600;color:#1e293b;">$safeTrain</td>
           </tr>
           <tr>
             <td style="padding:4px 0;color:#64748b;">Alasan Pembatalan</td>
-            <td style="padding:4px 0;text-align:right;color:#1e293b;">$reason</td>
+            <td style="padding:4px 0;text-align:right;color:#1e293b;">$safeReason</td>
           </tr>
           <tr>
             <td style="padding:8px 0 4px;color:#062056;font-weight:bold;">Estimasi Pengembalian (75%)</td>

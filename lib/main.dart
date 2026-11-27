@@ -1,5 +1,7 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
 
 import 'config/app_env.dart';
 import 'dashboard/dashboard_screen.dart';
@@ -10,6 +12,14 @@ import 'splash_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppEnv.load();
+  // Pada Web, muat MapLibre GL JS self-hosted dari Secure API Gateway (0ms lokal, bebas blokir CSP/CDN unpkg).
+  // maplibre-gl.css sudah dimuat langsung lewat <link rel="stylesheet"> di web/index.html sehingga bebas warning Chrome unused-preload.
+  if (kIsWeb) {
+    MapLibreMap.webLibrarySource = MapLibreJsSource.urls(
+      scriptUrl: '${AppEnv.apiGatewayUrl}/api/map/lib/maplibre-gl.mjs',
+      timeout: const Duration(seconds: 15),
+    );
+  }
   await IndonesiaTimeService.initialize();
   await SupabaseService.initialize();
   runApp(const MyApp());

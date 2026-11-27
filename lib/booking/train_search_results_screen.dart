@@ -65,7 +65,6 @@ class _TrainSearchResultsScreenState extends State<TrainSearchResultsScreen> {
 
   Future<void> _fetchTrains() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 200));
     final results = await UserDatabaseService.searchTrains(
       originCode: _origin.code,
       destCode: _dest.code,

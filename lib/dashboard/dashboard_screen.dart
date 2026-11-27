@@ -43,6 +43,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _isLoadingBookings = true;
 
   int _activeNavIndex = 0; // 0: Beranda, 1: Pesanan, 2: Tiket Saya, 3: Akun
+  final Set<int> _initializedTabs = {0};
   int _selectedTripType = 0; // 0: Sekali Jalan, 1: Pulang Pergi
   String _selectedClassFilter = 'Semua';
   bool _returnTripChecked = false;
@@ -129,9 +130,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   void initState() {
     super.initState();
     _activeNavIndex = widget.initialTabIndex;
+    _initializedTabs.add(_activeNavIndex);
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 320),
     );
 
     _loadUserData();
@@ -143,27 +145,49 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
   }
 
-  Future<void> _loadUserData() async {
-    final savedName = widget.userName?.trim().isNotEmpty == true
-        ? widget.userName!.trim()
-        : await SessionService.getUserName();
-    final balance = await SessionService.getUserBalance();
-    final points = await SessionService.getUserPoints();
-    final tier = await SessionService.getUserTier();
-    final bookings = await UserDatabaseService.getBookings(
-      statusFilter: 'Sudah Dibayar',
-    );
-
-    if (mounted) {
+  Future<void> _loadUserData({bool forceRefresh = false}) async {
+    // Tampilkan tiket dari cache memori terlebih dahulu agar frame 0 langsung terisi instan
+    final cachedBookings = UserDatabaseService.getCachedBookings()
+        .where((b) => b.status == 'Sudah Dibayar')
+        .toList();
+    if (cachedBookings.isNotEmpty && _activeBookings.isEmpty && mounted) {
       setState(() {
-        _currentUserName = savedName;
-        _userBalance = balance;
-        _userPoints = points;
-        _userTier = tier;
-        _activeBookings = bookings;
+        _activeBookings = cachedBookings;
         _isLoadingBookings = false;
       });
     }
+
+    // Muat semua data sesi & tiket secara PARALEL (Future.wait) bukan serial!
+    final results = await Future.wait<dynamic>([
+      widget.userName?.trim().isNotEmpty == true
+          ? Future.value(widget.userName!.trim())
+          : SessionService.getUserName(),
+      SessionService.getUserBalance(),
+      SessionService.getUserPoints(),
+      SessionService.getUserTier(),
+      UserDatabaseService.getBookings(
+        statusFilter: 'Sudah Dibayar',
+        forceRefresh: forceRefresh,
+      ),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _currentUserName = results[0] as String;
+        _userBalance = results[1] as int;
+        _userPoints = results[2] as int;
+        _userTier = results[3] as String;
+        _activeBookings = results[4] as List<BookingModel>;
+        _isLoadingBookings = false;
+      });
+    }
+  }
+
+  void _switchTab(int index) {
+    setState(() {
+      _activeNavIndex = index;
+      _initializedTabs.add(index);
+    });
   }
 
   String _formatNumber(int amount) {
@@ -281,21 +305,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     required Animation<double> ticketAnim,
     required Animation<double> promoAnim,
   }) {
-    switch (_activeNavIndex) {
-      case 1:
-        return OrdersScreen(
-          embedded: true,
-          onNavigateToTickets: () => setState(() => _activeNavIndex = 2),
-        );
-      case 2:
-        return const MyTicketsScreen(embedded: true);
-      case 3:
-        return ProfileScreen(
-          embedded: true,
-          onOpenOrders: () => setState(() => _activeNavIndex = 1),
-        );
-      default:
-        return _buildHomeScrollView(
+    // Lazy-Mounted IndexedStack: tab hanya dibuat saat pertama kali diklik lalu dipertahankan
+    // di memori sehingga perpindahan tab 0ms instan tanpa reload/loading ulang!
+    return IndexedStack(
+      index: _activeNavIndex,
+      children: [
+        _buildHomeScrollView(
           context,
           headerAnim: headerAnim,
           walletAnim: walletAnim,
@@ -303,8 +318,24 @@ class _DashboardScreenState extends State<DashboardScreen>
           searchCardAnim: searchCardAnim,
           ticketAnim: ticketAnim,
           promoAnim: promoAnim,
-        );
-    }
+        ),
+        _initializedTabs.contains(1)
+            ? OrdersScreen(
+                embedded: true,
+                onNavigateToTickets: () => _switchTab(2),
+              )
+            : const SizedBox.shrink(),
+        _initializedTabs.contains(2)
+            ? const MyTicketsScreen(embedded: true)
+            : const SizedBox.shrink(),
+        _initializedTabs.contains(3)
+            ? ProfileScreen(
+                embedded: true,
+                onOpenOrders: () => _switchTab(1),
+              )
+            : const SizedBox.shrink(),
+      ],
+    );
   }
 
   Widget _buildHomeScrollView(
@@ -317,7 +348,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     required Animation<double> promoAnim,
   }) {
     return RefreshIndicator(
-      onRefresh: _loadUserData,
+      onRefresh: () => _loadUserData(forceRefresh: true),
       color: const Color(0xFFF26716),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(
@@ -446,67 +477,79 @@ class _DashboardScreenState extends State<DashboardScreen>
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Logo TKA + Greeting User
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Image.asset(
-                  'assets/images/logo_tka_full.png',
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        _getGreeting(),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontWeight: FontWeight.w400,
-                        ),
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
                       ),
-                      const SizedBox(width: 5),
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF00E676),
-                          shape: BoxShape.circle,
+                    ],
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo_tka_full.png',
+                    fit: BoxFit.contain,
+                    cacheWidth: 128,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _getGreeting(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF00E676),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _currentUserName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _currentUserName,
-                    style: const TextStyle(
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
 
           // Tombol Notifikasi, Tiket/Chat & Bendera ID
           Row(
@@ -517,9 +560,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => NotificationsScreen(
-                        onOpenTickets: () =>
-                            setState(() => _activeNavIndex = 2),
-                        onOpenOrders: () => setState(() => _activeNavIndex = 1),
+                        onOpenTickets: () => _switchTab(2),
+                        onOpenOrders: () => _switchTab(1),
                       ),
                     ),
                   );
@@ -558,7 +600,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
               // Chat / Receipt Icon
               GestureDetector(
-                onTap: () => setState(() => _activeNavIndex = 1),
+                onTap: () => _switchTab(1),
                 child: Container(
                   width: 38,
                   height: 38,
@@ -640,70 +682,82 @@ class _DashboardScreenState extends State<DashboardScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Saldo TKAPay
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF062056)
-                              .withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'TK',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF062056),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF062056)
+                                .withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'TK',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF062056),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'TKAPay',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF062056),
+                        const SizedBox(width: 6),
+                        const Flexible(
+                          child: Text(
+                            'TKAPay',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF062056),
+                            ),
+                          ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            'Rp ',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            _formatNumber(_userBalance),
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1B1E28),
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        'Rp ',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      Text(
-                        _formatNumber(_userBalance),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF1B1E28),
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
 
               // Aksi: Scan, Top Up, Riwayat
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildWalletAction(
                     icon: Icons.qr_code_scanner_rounded,
@@ -714,7 +768,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       );
                     },
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 10),
                   _buildWalletAction(
                     icon: Icons.add_circle_outline_rounded,
                     label: 'Top Up',
@@ -727,7 +781,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       }
                     },
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 10),
                   _buildWalletAction(
                     icon: Icons.history_rounded,
                     label: 'Riwayat',
@@ -752,89 +806,103 @@ class _DashboardScreenState extends State<DashboardScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF26716),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.monetization_on_rounded,
-                      size: 13,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    _formatNumber(_userPoints),
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF062056),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'TKA Poin',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-
-              // Badge Member Tier
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: _userTier.contains('Gold')
-                      ? const Color(0xFFFFF3E0)
-                      : const Color(0xFFE8F1FC),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: _userTier.contains('Gold')
-                        ? const Color(0xFFFFB74D).withValues(alpha: 0.5)
-                        : const Color(0xFF90CAF9).withValues(alpha: 0.5),
-                    width: 0.8,
-                  ),
-                ),
+              Expanded(
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.circle,
-                      size: 7,
-                      color: _userTier.contains('Gold')
-                          ? const Color(0xFFE65100)
-                          : const Color(0xFF1565C0),
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF26716),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.monetization_on_rounded,
+                        size: 13,
+                        color: Colors.white,
+                      ),
                     ),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 6),
                     Text(
-                      _userTier,
-                      style: TextStyle(
-                        fontSize: 11,
+                      _formatNumber(_userPoints),
+                      style: const TextStyle(
+                        fontSize: 12.5,
                         fontWeight: FontWeight.bold,
+                        color: Color(0xFF062056),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'TKA Poin',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Badge Member Tier
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _userTier.contains('Gold')
+                        ? const Color(0xFFFFF3E0)
+                        : const Color(0xFFE8F1FC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _userTier.contains('Gold')
+                          ? const Color(0xFFFFB74D).withValues(alpha: 0.5)
+                          : const Color(0xFF90CAF9).withValues(alpha: 0.5),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.circle,
+                        size: 7,
                         color: _userTier.contains('Gold')
                             ? const Color(0xFFE65100)
                             : const Color(0xFF1565C0),
                       ),
-                    ),
-                    const SizedBox(width: 2),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 15,
-                      color: _userTier.contains('Gold')
-                          ? const Color(0xFFE65100)
-                          : const Color(0xFF1565C0),
-                    ),
-                  ],
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          _userTier,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _userTier.contains('Gold')
+                                ? const Color(0xFFE65100)
+                                : const Color(0xFF1565C0),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 15,
+                        color: _userTier.contains('Gold')
+                            ? const Color(0xFFE65100)
+                            : const Color(0xFF1565C0),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1010,42 +1078,44 @@ class _DashboardScreenState extends State<DashboardScreen>
     required Color iconColor,
     VoidCallback? onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: SizedBox(
-        width: 72,
-        child: Column(
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: bgColor.withValues(alpha: 0.22),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Column(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: bgColor.withValues(alpha: 0.22),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: iconColor, size: 24),
               ),
-              child: Icon(icon, color: iconColor, size: 24),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF062056),
+              const SizedBox(height: 6),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF062056),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1091,7 +1161,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                       });
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 9,
+                        horizontal: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: _selectedTripType == 0
                             ? Colors.white
@@ -1117,16 +1190,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 ? const Color(0xFF062056)
                                 : Colors.grey.shade500,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Sekali Jalan',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: _selectedTripType == 0
-                                  ? const Color(0xFF062056)
-                                  : Colors.grey.shade600,
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Sekali Jalan',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: _selectedTripType == 0
+                                    ? const Color(0xFF062056)
+                                    : Colors.grey.shade600,
+                              ),
                             ),
                           ),
                         ],
@@ -1144,7 +1221,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                       });
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 9,
+                        horizontal: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: _selectedTripType == 1
                             ? Colors.white
@@ -1170,16 +1250,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 ? const Color(0xFFF26716)
                                 : Colors.grey.shade500,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Pulang Pergi',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: _selectedTripType == 1
-                                  ? const Color(0xFF062056)
-                                  : Colors.grey.shade600,
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Pulang Pergi',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: _selectedTripType == 1
+                                    ? const Color(0xFF062056)
+                                    : Colors.grey.shade600,
+                              ),
                             ),
                           ),
                         ],
@@ -1228,36 +1312,45 @@ class _DashboardScreenState extends State<DashboardScreen>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'STASIUN ASAL',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey.shade500,
-                                  letterSpacing: 0.5,
+                              Expanded(
+                                child: Text(
+                                  'STASIUN ASAL',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey.shade500,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _selectedTripType == 1
-                                      ? const Color(0xFFFFF7ED)
-                                      : const Color(0xFFEFF6FF),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  _selectedTripType == 1
-                                      ? 'Pulang-Pergi (2 Tiket)'
-                                      : 'Sekali Jalan (1 Tiket)',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
                                     color: _selectedTripType == 1
-                                        ? const Color(0xFFEA580C)
-                                        : const Color(0xFF2563EB),
+                                        ? const Color(0xFFFFF7ED)
+                                        : const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    _selectedTripType == 1
+                                        ? 'Pulang-Pergi (2 Tiket)'
+                                        : 'Sekali Jalan (1 Tiket)',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: _selectedTripType == 1
+                                          ? const Color(0xFFEA580C)
+                                          : const Color(0xFF2563EB),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1267,21 +1360,33 @@ class _DashboardScreenState extends State<DashboardScreen>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                _originStation ?? 'Pilih Stasiun Asal',
-                                style: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: _originStation != null
-                                      ? const Color(0xFF062056)
-                                      : Colors.grey.shade400,
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  _originStation ?? 'Pilih Stasiun Asal',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: _originStation != null
+                                        ? const Color(0xFF062056)
+                                        : Colors.grey.shade400,
+                                  ),
                                 ),
                               ),
-                              Text(
-                                _originCity ?? 'Ketuk untuk memilih',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: Colors.grey.shade600,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                flex: 2,
+                                child: Text(
+                                  _originCity ?? 'Ketuk untuk memilih',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: Colors.grey.shade600,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1332,21 +1437,33 @@ class _DashboardScreenState extends State<DashboardScreen>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                _destStation ?? 'Pilih Stasiun Tujuan',
-                                style: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: _destStation != null
-                                      ? const Color(0xFF062056)
-                                      : Colors.grey.shade400,
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  _destStation ?? 'Pilih Stasiun Tujuan',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: _destStation != null
+                                        ? const Color(0xFF062056)
+                                        : Colors.grey.shade400,
+                                  ),
                                 ),
                               ),
-                              Text(
-                                _destCity ?? 'Ketuk untuk memilih',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: Colors.grey.shade600,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                flex: 2,
+                                child: Text(
+                                  _destCity ?? 'Ketuk untuk memilih',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: Colors.grey.shade600,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1490,20 +1607,25 @@ class _DashboardScreenState extends State<DashboardScreen>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                _returnTripChecked
-                                    ? 'Tanggal Pulang'
-                                    : 'Pulang (Opsional)',
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: _returnTripChecked
-                                      ? FontWeight.bold
-                                      : FontWeight.w500,
-                                  color: _returnTripChecked
-                                      ? const Color(0xFFC2410C)
-                                      : Colors.grey.shade600,
+                              Expanded(
+                                child: Text(
+                                  _returnTripChecked
+                                      ? 'Tanggal Pulang'
+                                      : 'Pulang (Opsional)',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: _returnTripChecked
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                    color: _returnTripChecked
+                                        ? const Color(0xFFC2410C)
+                                        : Colors.grey.shade600,
+                                  ),
                                 ),
                               ),
+                              const SizedBox(width: 4),
                               SizedBox(
                                 width: 18,
                                 height: 18,
@@ -1534,6 +1656,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                             _returnTripChecked && _returnDate != null
                                 ? _formatDashboardDate(_returnDate!)
                                 : 'Sekali Jalan (Tanpa PP)',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: _returnTripChecked
@@ -1727,14 +1851,16 @@ class _DashboardScreenState extends State<DashboardScreen>
           const SizedBox(height: 12),
 
           // Riwayat Terakhir Dicari
-          Row(
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                'Terakhir dicari: ',
+                'Terakhir dicari:',
                 style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
               ),
               _buildHistoryPill('GMR ➔ BD'),
-              const SizedBox(width: 6),
               _buildHistoryPill('GMR ➔ YK'),
             ],
           ),
@@ -1863,15 +1989,20 @@ class _DashboardScreenState extends State<DashboardScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'PERJALANAN MENDATANG',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF062056),
-                letterSpacing: 0.3,
+            const Expanded(
+              child: Text(
+                'PERJALANAN MENDATANG',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF062056),
+                  letterSpacing: 0.3,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               '${_activeBookings.length} Tiket Aktif',
               style: const TextStyle(
@@ -2080,27 +2211,35 @@ class _DashboardScreenState extends State<DashboardScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Kode: ',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                        ),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Kode: ',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          TextSpan(
+                            text: ticket.bookingId,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'monospace',
+                              color: Color(0xFF062056),
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        ticket.bookingId,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          fontFamily: 'monospace',
-                          color: Color(0xFF062056),
-                        ),
-                      ),
-                    ],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 6),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       InkWell(
                         onTap: () {
@@ -2114,7 +2253,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         borderRadius: BorderRadius.circular(10),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
+                            horizontal: 9,
                             vertical: 7,
                           ),
                           margin: const EdgeInsets.only(right: 6),
@@ -2124,6 +2263,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             border: Border.all(color: const Color(0xFFBFDBFE)),
                           ),
                           child: const Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 Icons.my_location_rounded,
@@ -2157,7 +2297,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         borderRadius: BorderRadius.circular(10),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
+                            horizontal: 11,
                             vertical: 7,
                           ),
                           decoration: BoxDecoration(
@@ -2222,12 +2362,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                 children: [
                   Row(
                     children: [
-                      const Text(
-                        'Live Tracking',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
+                      const Flexible(
+                        child: Text(
+                          'Live Tracking',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -2263,7 +2407,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
+                      horizontal: 12,
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
@@ -2273,12 +2417,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'Buka Live Tracking',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF062056),
+                        Flexible(
+                          child: Text(
+                            'Buka Live Tracking',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF062056),
+                            ),
                           ),
                         ),
                         SizedBox(width: 4),
@@ -2471,16 +2619,26 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  validDate,
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                Expanded(
+                  child: Text(
+                    validDate,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                  ),
                 ),
-                Text(
-                  actionLabel,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFF26716),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    actionLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFF26716),
+                    ),
                   ),
                 ),
               ],
@@ -2551,7 +2709,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final color = isActive ? const Color(0xFFF26716) : const Color(0xFF8E95A5);
 
     return GestureDetector(
-      onTap: () => setState(() => _activeNavIndex = index),
+      onTap: () => _switchTab(index),
       behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisSize: MainAxisSize.min,
